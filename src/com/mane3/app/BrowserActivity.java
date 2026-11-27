@@ -581,15 +581,86 @@ public class BrowserActivity extends Activity {
     volatile boolean playing = false;
     boolean pipZoomed = false;
 
+    // ---------- picture-in-picture ----------
+    // The WebView freezes in the small window on many phones, so when we know the video's address
+    // we play it in Android's own player there (same minute, sound + picture), and hand it back on return.
+    FrameLayout rootView;
+    FrameLayout nvBox;
+    android.widget.VideoView nv;
+    volatile String lastSrc = "";
+    volatile double lastT = 0;
+    boolean nativePip = false;
+
+    String pipSrc() {
+        if (lastSrc != null && lastSrc.startsWith("http")) return lastSrc;
+        String m3u8 = null;
+        synchronized (media) { for (String u : media.keySet()) if (u.toLowerCase(Locale.ROOT).contains(".m3u8")) m3u8 = u; }
+        return m3u8;
+    }
+
+    boolean startNative(String src, double t) {
+        try {
+            Map<String, String> hd = new HashMap<>();
+            hd.put("User-Agent", web.getSettings().getUserAgentString());
+            String ref = web.getUrl();
+            if (ref != null && ref.startsWith("http")) hd.put("Referer", ref);
+            String ck = CookieManager.getInstance().getCookie(src);
+            if (ck != null) hd.put("Cookie", ck);
+            nvBox = new FrameLayout(this);
+            nvBox.setBackgroundColor(Color.BLACK);
+            nv = new android.widget.VideoView(this);
+            nvBox.addView(nv, new FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+            rootView.addView(nvBox, new FrameLayout.LayoutParams(-1, -1));
+            final int ms = (int) (t * 1000);
+            nv.setOnPreparedListener(new android.media.MediaPlayer.OnPreparedListener() { public void onPrepared(android.media.MediaPlayer mp) {
+                if (ms > 0) mp.seekTo(ms);
+                mp.start();
+                try {
+                    int w = mp.getVideoWidth(), hh = mp.getVideoHeight();
+                    if (w > 0 && hh > 0 && Build.VERSION.SDK_INT >= 26) {
+                        float r = Math.max(0.42f, Math.min(2.39f, w / (float) hh));
+                        setPictureInPictureParams(new android.app.PictureInPictureParams.Builder().setAspectRatio(new android.util.Rational((int) (r * 1000), 1000)).build());
+                    }
+                } catch (Exception ignored) {}
+            }});
+            nv.setOnErrorListener(new android.media.MediaPlayer.OnErrorListener() { public boolean onError(android.media.MediaPlayer mp, int a, int b) {
+                stopNative(false); web.evaluateJavascript("window.__cmd&&__cmd('play',0)", null); return true; } });
+            nv.setVideoURI(Uri.parse(src), hd);
+            web.evaluateJavascript("window.__cmd&&__cmd('pause',0)", null);
+            webBox.setVisibility(View.INVISIBLE);
+            nativePip = true;
+            return true;
+        } catch (Exception e) { stopNative(false); return false; }
+    }
+
+    /** Back from the small window: continue in the page from where the native player got to. */
+    void stopNative(boolean handBack) {
+        if (!nativePip && nvBox == null) return;
+        int pos = 0; boolean was = false;
+        try { if (nv != null) { pos = nv.getCurrentPosition(); was = nv.isPlaying(); nv.stopPlayback(); } } catch (Exception ignored) {}
+        if (nvBox != null) rootView.removeView(nvBox);
+        nv = null; nvBox = null; nativePip = false;
+        webBox.setVisibility(View.VISIBLE);
+        if (handBack && pos > 0) {
+            web.evaluateJavascript("window.__cmd&&__cmd('seekto'," + (pos / 1000) + ")", null);
+            if (was) web.evaluateJavascript("setTimeout(function(){window.__cmd&&__cmd('play',0)},300)", null);
+        }
+    }
+
     void enterPip() {
         if (Build.VERSION.SDK_INT < 26) { toast("جهازك ما يدعم النافذة الصغيرة"); return; }
         try {
-            pipZoomed = zoomMode == 0 && customView == null;
-            if (pipZoomed) web.evaluateJavascript("window.__cmd&&__cmd('zoom',1)", null);
             top.setVisibility(View.GONE); bottom.setVisibility(View.GONE); vpanel.setVisibility(View.GONE);
             overlay.setVisibility(View.GONE); seekB.row.setVisibility(View.GONE);
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            String src = pipSrc();
+            pipZoomed = false;
+            if (src == null || !startNative(src, lastT)) {
+                pipZoomed = zoomMode == 0 && customView == null;
+                if (pipZoomed) web.evaluateJavascript("window.__cmd&&__cmd('zoom',1)", null);
+            }
             enterPictureInPictureMode(new android.app.PictureInPictureParams.Builder().setAspectRatio(new android.util.Rational(16, 9)).build());
-        } catch (Exception e) { toast("ما قدرت أفتح النافذة الصغيرة"); }
+        } catch (Exception e) { stopNative(true); toast("ما قدرت أفتح النافذة الصغيرة"); }
     }
 
     @Override
@@ -602,6 +673,16 @@ public class BrowserActivity extends Activity {
     public void onPictureInPictureModeChanged(boolean inPip, android.content.res.Configuration cfg) {
         super.onPictureInPictureModeChanged(inPip, cfg);
         if (inPip) return;
+        boolean wasNative = nativePip;
+        stopNative(true);
+        if (wasNative) {
+            top.setVisibility(View.VISIBLE); bottom.setVisibility(View.VISIBLE);
+            if (cinema()) { setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE); showOverlay(); }
+            else setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            web.evaluateJavascript("!!(document.querySelector('video')||window.__fv)", new ValueCallback<String>() { public void onReceiveValue(String v) { if (!cinema()) vpanel.setVisibility("true".equals(v) ? View.VISIBLE : View.GONE); } });
+            return;
+        }
+        if (cinema()) setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         if (pipZoomed) {
             pipZoomed = false;
             web.evaluateJavascript("window.__cmd&&__cmd('zoom',0)", null);
@@ -717,6 +798,7 @@ public class BrowserActivity extends Activity {
                     org.json.JSONObject o = new org.json.JSONObject(js);
                     double t = o.getDouble("t"), d = o.getDouble("d");
                     playing = o.optInt("p", 1) == 0;
+                    lastT = t; lastSrc = o.optString("s", "");
                     if (sleepAtEnd && d > 30 && t >= d - 2) sleepNow();
                     resume(t, d);
                     seekA.set(t, d); seekB.set(t, d);
@@ -779,6 +861,7 @@ public class BrowserActivity extends Activity {
         }
 
         FrameLayout root = new FrameLayout(this);
+        rootView = root;
         root.setBackgroundColor(Color.parseColor("#0B1220"));
         LinearLayout main = new LinearLayout(this);
         main.setOrientation(LinearLayout.VERTICAL);
@@ -1951,6 +2034,13 @@ public class BrowserActivity extends Activity {
 
     @Override protected void onStop() {
         super.onStop();
+        if (nativePip) {   // small window closed with ✕
+            int pos = 0;
+            try { pos = nv.getCurrentPosition(); } catch (Exception ignored) {}
+            stopNative(false);
+            if (pos > 0) web.evaluateJavascript("window.__cmd&&__cmd('seekto'," + (pos / 1000) + ")", null);
+            top.setVisibility(View.VISIBLE); bottom.setVisibility(View.VISIBLE);
+        }
         boolean pip = Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
         if (!pip && !(playing && bgOn())) unlocked = false;
         if (isFinishing() && wipeOn()) wipeAll();

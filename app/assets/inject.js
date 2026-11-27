@@ -310,6 +310,7 @@
     if (cmd === 'zap') { zapOn = !!a; return 1; }
     if (cmd === 'reader') return TOP ? reader() : 0;
     if (cmd === 'nextep') return TOP ? offerNext(false) : 0;
+    if (cmd === 'play') { var pv = mainVideo(); if (pv) { try { pv.play(); } catch (e) {} return 1; } return 0; }
     if (cmd === 'gest') { window.__gest = !!a; return 1; }
     if (cmd === 'dtap') { window.__dtap = !!a; return 1; }
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
@@ -373,7 +374,7 @@
   // ---------- video time info (for the app's seek bar) ----------
   function info() {
     var v = mainVideo();
-    if (v && isFinite(v.duration) && v.duration > 1 && !isAd()) return { t: v.currentTime, d: v.duration, p: v.paused ? 1 : 0 };
+    if (v && isFinite(v.duration) && v.duration > 1 && !isAd()) return { t: v.currentTime, d: v.duration, p: v.paused ? 1 : 0, s: /^https?:/.test(v.currentSrc || '') ? v.currentSrc : '' };
     return null;
   }
   window.__vinfo = function () {

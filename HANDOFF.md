@@ -53,6 +53,7 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 6.7 PiP uses a native `VideoView` overlay (in BrowserActivity, so it works from onUserLeaveHint) when the video URL is known (`__vinfo().s` = http currentSrc, else last .m3u8 seen); web video paused; on return `stopNative(true)` seeks the page to the native position and plays; ✕ on the small window stops it; falls back to WebView PiP when no URL.
 - 6.6 background resume limited to 2 per 30s per video (fighting the system caused stutter); pagehide/freeze no longer blocked; on return (`bgstate` 0) a stuck playing video gets nudged.
 - 6.5 background play: visibility/blur/pagehide/freeze blocked on window capture (beats listeners added before our late injection); `bgstate` cmd marks background, and a site-initiated pause in background is undone unless the user touched the page or the app paused (`__mpaused`).
 - 6.4 share the app: link (github raw redirect) or the APK itself (copied to Download/Mane3 via MediaStore); in settings, home and browser menu.
