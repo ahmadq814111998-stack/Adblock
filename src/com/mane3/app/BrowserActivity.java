@@ -1557,10 +1557,17 @@ public class BrowserActivity extends Activity {
         }}).show();
     }
 
+    static final String[] PROTECTED = {"youtube.com", "youtu.be", "googlevideo.com", "netflix.com", "shahid.mbc.net", "primevideo.com",
+        "disneyplus.com", "osnplus.com", "osn.com", "tod.tv", "starzplay.com", "anghami.com", "spotify.com"};
+
+    /** By host, not by text anywhere in the address (the old check caught any URL containing "osn"). */
     static boolean isProtected(String page) {
-        String p = page.toLowerCase(Locale.ROOT);
-        return p.contains("youtube.com") || p.contains("youtu.be") || p.contains("netflix.com") || p.contains("shahid.mbc.net")
-            || p.contains("primevideo.com") || p.contains("disneyplus.com") || p.contains("osn") || p.contains("tod.tv");
+        if (page == null) return false;
+        String h = Uri.parse(page).getHost();
+        if (h == null) return false;
+        h = h.toLowerCase(Locale.ROOT);
+        for (String d : PROTECTED) if (h.equals(d) || h.endsWith("." + d)) return true;
+        return false;
     }
 
     void download(String u, String cd, String mime) {
@@ -1850,6 +1857,18 @@ public class BrowserActivity extends Activity {
         return false;
     }
 
+    static final String[] SAFE_NAV = {"accounts.google.com", "google.com", "appleid.apple.com", "apple.com", "facebook.com", "instagram.com",
+        "x.com", "twitter.com", "microsoft.com", "live.com", "microsoftonline.com", "paypal.com", "stripe.com", "checkout.com", "tap.company",
+        "myfatoorah.com", "kpay.com.kw", "knet.com.kw", "gov.kw", "edu.kw", "nbk.com", "abk.com.kw", "cbk.com", "kfh.com", "boubyan.com",
+        "warba.com", "gulfbank.com", "burgan.com", "translate.goog", "youtube.com", "wikipedia.org"};
+
+    /** Logins, payments, banks and government pages are never treated as hijack redirects. */
+    static boolean safeNav(String host) {
+        String h = host.toLowerCase(Locale.ROOT);
+        for (String d : SAFE_NAV) if (h.equals(d) || h.endsWith("." + d)) return true;
+        return false;
+    }
+
     boolean guardNav(WebResourceRequest r, String u) {
         if (!r.isForMainFrame()) return false;
         if (u.equals(allowOnce)) { allowOnce = null; return false; }
@@ -1857,7 +1876,7 @@ public class BrowserActivity extends Activity {
         if (host == null) return false;
         if (blockedHost(host)) { blockPop("🚫 منعت تحويل لدعاية: " + baseHost(host), u); return true; }
         if (r.isRedirect() || pageHost.isEmpty()) return false;
-        if (!site(host).equals(site(pageHost)) && !tappedLink(u)) {
+        if (!site(host).equals(site(pageHost)) && !tappedLink(u) && !safeNav(host)) {
             blockPop("🚫 الموقع حاول يحوّلك لـ " + baseHost(host), u);
             return true;
         }

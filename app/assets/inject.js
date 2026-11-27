@@ -640,7 +640,8 @@
     'click allow', 'press allow', 'tap allow', 'click "allow"', 'to continue, click', 'click to continue', 'press "allow"',
     'your device may be infected', 'جهازك مصاب', 'تم اختراق', 'you won', 'لقد ربحت', 'مبروك لقد', 'تأكيد أنك', 'confirm you are'];
   var ATT = ['انتباه', 'تنبيه', 'attention', 'warning!', 'تحذير'];
-  var BTN = ['نعم', 'يلغي', 'إلغاء', 'الغاء', 'أكثر', 'سماح', 'اسمح', 'موافق', 'allow', 'cancel', 'yes', 'more', 'continue'];
+  // «Attention» alone is normal on real sites (e.g. "تنبيه: تم الحفظ  [موافق]"); only remove it together with a lure word
+  var BTN = ['انقر', 'اضغط', 'سماح', 'اسمح', 'للمتابعة', 'للمزيد', 'روبوت', 'robot', 'click', 'tap ', 'allow', 'to continue', 'notification', 'الإشعارات', 'الاشعارات'];
   function fullText(e) {
     var t = e.innerText || '';
     if (e.shadowRoot) t += ' ' + (e.shadowRoot.textContent || '');

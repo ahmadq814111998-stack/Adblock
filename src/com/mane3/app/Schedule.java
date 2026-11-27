@@ -17,7 +17,7 @@ public class Schedule {
         {"youtube", "▶️ يوتيوب", "youtube.com,youtu.be,googlevideo.com,ytimg.com,youtube-nocookie.com,youtubei.googleapis.com,youtubekids.com"},
         {"x", "𝕏 تويتر/X", "twitter.com,x.com,twimg.com,t.co"},
         {"facebook", "📘 فيسبوك", "facebook.com,facebook.net,fb.com,fbcdn.net,messenger.com"},
-        {"netflix", "🎬 نتفلكس وشاهد", "netflix.com,nflxvideo.net,nflximg.net,nflxext.com,nflxso.net,shahid.mbc.net,mbc.net"},
+        {"netflix", "🎬 نتفلكس وشاهد", "netflix.com,nflxvideo.net,nflximg.net,nflxext.com,nflxso.net,shahid.mbc.net"},
         {"games", "🎮 ألعاب أونلاين", "supercell.com,clashofclans.com,pubgmobile.com,igamecj.com,roblox.com,rbxcdn.com,epicgames.com,habby.mobi,habby.com,ea.com,king.com"},
     };
 

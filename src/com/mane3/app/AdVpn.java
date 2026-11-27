@@ -41,7 +41,7 @@ public class AdVpn extends VpnService implements Runnable {
 
     static final String[] BYPASS_DNS = {"8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "1.1.1.2", "1.0.0.2", "1.1.1.3", "1.0.0.3", "9.9.9.9", "149.112.112.112",
         "208.67.222.222", "208.67.220.220", "94.140.14.14", "94.140.15.15", "94.140.14.15", "94.140.15.16", "76.76.2.2", "76.76.10.2",
-        "185.228.168.9", "185.228.169.9", "45.90.28.0", "45.90.30.0", "8.26.56.26", "8.20.247.20", "64.6.64.6", "64.6.65.6", "77.88.8.8", "77.88.8.1"};
+        "185.228.168.9", "185.228.169.9", "45.90.28.0", "45.90.30.0", "8.26.56.26", "8.20.247.20", "77.88.8.8", "77.88.8.1"};
     public static volatile boolean running = false;   // tunnel is up
     public static volatile boolean wanted = false;    // user switched it on
     public static volatile String pausedFor = null;   // package that paused it
