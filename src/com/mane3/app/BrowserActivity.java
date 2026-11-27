@@ -227,11 +227,28 @@ public class BrowserActivity extends Activity {
     boolean darkOn() { return getSharedPreferences("b", 0).getBoolean("dark", false); }
     int introFor(String host) { return getSharedPreferences("b", 0).getInt("intro:" + host, 0); }
 
+    volatile int pageFlags = 0;
+
+    static int reqType(WebResourceRequest r, String path) {
+        if (r.isForMainFrame()) return Filters.T_DOC;
+        Map<String, String> h = r.getRequestHeaders();
+        String acc = "";
+        if (h != null) { String x = h.get("Accept"); if (x == null) x = h.get("accept"); if (x != null) acc = x.toLowerCase(Locale.ROOT); }
+        if (acc.startsWith("text/html")) return Filters.T_FRAME;
+        if (acc.startsWith("text/css") || path.endsWith(".css")) return Filters.T_CSS;
+        if (acc.startsWith("image/") || path.matches(".*\\.(png|jpe?g|gif|webp|svg|ico|avif)$")) return Filters.T_IMAGE;
+        if (path.endsWith(".js") || path.endsWith(".mjs")) return Filters.T_SCRIPT;
+        if (path.matches(".*\\.(woff2?|ttf|otf|eot)$")) return Filters.T_FONT;
+        if (path.matches(".*\\.(mp4|webm|m3u8|ts|m4s|mp3|m4a|aac)$")) return Filters.T_MEDIA;
+        return Filters.T_SCRIPT | Filters.T_XHR | Filters.T_OTHER | Filters.T_PING;   // */*: can't tell script from fetch
+    }
+
     String pre(String host) {
         return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn()
             + ";window.__gest=" + getSharedPreferences("b", 0).getBoolean("gest", false)
             + ";window.__dtap=" + getSharedPreferences("b", 0).getBoolean("dtap", true)
             + ";window.__autonext=" + getSharedPreferences("b", 0).getBoolean("autonext", true)
+            + ";window.__cos=" + org.json.JSONObject.quote(Filters.css(host == null ? "" : host, host != null && host.equals(pageHost) ? pageFlags : 0, !isStealth()))
             + ";window.__dark=" + darkOn() + ";window.__intro=" + introFor(pageHost) + ";window.__cine=" + (zoomMode > 0 || customView != null) + ";";
     }
 
@@ -864,7 +881,10 @@ public class BrowserActivity extends Activity {
         dp = getResources().getDisplayMetrics().density;
         getWindow().setStatusBarColor(Color.parseColor("#0B1220"));
         getWindow().setNavigationBarColor(Color.parseColor("#0B1220"));
-        new Thread(new Runnable() { public void run() { Rules.load(getApplicationContext()); } }).start();
+        new Thread(new Runnable() { public void run() {
+            Rules.load(getApplicationContext());
+            if (!Filters.ready) Filters.load(getApplicationContext());
+        } }).start();
         stealth = Collections.synchronizedSet(new HashSet<>(getSharedPreferences("m", 0).getStringSet("stealth", new HashSet<String>())));
         if (INJ == null) {
             try (java.io.InputStream in = getAssets().open("inject.js")) {
@@ -1168,7 +1188,7 @@ public class BrowserActivity extends Activity {
             @Override public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
                 Uri u = r.getUrl();
                 String host = u.getHost();
-                if (r.isForMainFrame() && v == web) pageHost = baseHost(host);
+                if (r.isForMainFrame() && v == web) { pageHost = baseHost(host); pageFlags = Filters.pageFlags(u.toString(), host); }
                 if (host != null && !r.isForMainFrame() && !isStealth()) {
                     int c = Rules.check(host);
                     if (c == Rules.BLOCK_LIST || c == Rules.BLOCK_CUSTOM) {
@@ -1179,6 +1199,14 @@ public class BrowserActivity extends Activity {
                         // Only scripts that sites break without get a harmless stand-in; with the VPN off, everything gets one.
                         if (critical || !AdVpn.running || AdVpn.pausedFor != null) return stub(u, r);
                         return null;
+                    }
+                }
+                // full filter lists (EasyList & co): paths, scripts, trackers served from any domain
+                if (host != null && !r.isForMainFrame() && !isStealth() && (pageFlags & 1) == 0) {
+                    String pth0 = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
+                    if (Filters.shouldBlock(u.toString(), host, v == web ? pageHost : null, reqType(r, pth0))) {
+                        blockedHere++;
+                        return stub(u, r);
                     }
                 }
                 if (!r.isForMainFrame() && "GET".equals(r.getMethod()) && host != null) {
@@ -1285,10 +1313,14 @@ public class BrowserActivity extends Activity {
         });
     }
 
-    void inject(WebView w) {
-        String u = w.getUrl();
-        String h = w == web ? pageHost : baseHost(u == null ? "" : Uri.parse(u).getHost());
-        w.evaluateJavascript(pre(h) + INJ, null);
+    void inject(final WebView w) {
+        // cheap check first: the full script carries the hiding rules (~200KB), send it once per page only
+        w.evaluateJavascript("!!window.__m", new ValueCallback<String>() { public void onReceiveValue(String v) {
+            if ("true".equals(v)) return;
+            String u = w.getUrl();
+            String h = w == web ? pageHost : baseHost(u == null ? "" : Uri.parse(u).getHost());
+            w.evaluateJavascript(pre(h) + INJ, null);
+        }});
     }
 
     void inject() {

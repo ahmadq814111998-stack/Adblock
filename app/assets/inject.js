@@ -65,6 +65,12 @@
     + "{display:none!important}";
   if (window.__dark && TOP) css += "html{filter:invert(.92) hue-rotate(180deg)!important;background:#fff!important}"
     + "img,video,picture,canvas,iframe,svg image,[style*='background-image']{filter:invert(1) hue-rotate(180deg)!important}";
+  if (window.__cos) try {
+    var cs2 = document.createElement('style');
+    cs2.id = '__mcos';
+    cs2.textContent = window.__cos;
+    (document.head || document.documentElement).appendChild(cs2);
+  } catch (e) {}
   try {
     var st = document.createElement('style');
     st.textContent = css;

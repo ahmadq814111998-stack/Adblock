@@ -70,7 +70,13 @@ public class Rules {
         if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) return null;
         String[] parts = line.split("\\s+");
         String d = parts.length >= 2 && (parts[0].equals("0.0.0.0") || parts[0].equals("127.0.0.1") || parts[0].equals("::") || parts[0].equals("::1")) ? parts[1] : parts[0];
-        if (d.startsWith("||")) d = d.substring(2);
+        if (d.startsWith("@@") || d.startsWith("|http") || d.startsWith("/") || d.contains("##") || d.contains("#@#")) return null;
+        if (d.startsWith("||")) {   // adblock syntax: only take plain "||domain^" (rules with a path or options are for the browser engine)
+            d = d.substring(2);
+            if (!d.endsWith("^")) return null;
+            String core = d.substring(0, d.length() - 1);
+            for (int k = 0; k < core.length(); k++) { char ch = core.charAt(k); if (ch == '/' || ch == '$' || ch == '*' || ch == '?' || ch == '=' || ch == '^' || ch == ':') return null; }
+        }
         if (d.endsWith("^")) d = d.substring(0, d.length() - 1);
         if (d.startsWith("*.")) d = d.substring(2);
         if (d.startsWith(".")) d = d.substring(1);
@@ -145,7 +151,7 @@ public class Rules {
                 int ver = Updater.myCode(ac);
                 if (prefs(ac).getInt("rulesVer", 0) != ver) {
                     prefs(ac).edit().putInt("rulesVer", ver).apply();
-                    new Thread(new Runnable() { public void run() { compile(ac); } }).start();
+                    new Thread(new Runnable() { public void run() { Lists.update(ac, true, null); } }).start();   // fetch new default lists, then rebuild
                 }
                 return;
             } catch (Exception ignored) {}

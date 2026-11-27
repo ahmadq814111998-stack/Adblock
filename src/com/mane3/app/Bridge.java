@@ -254,6 +254,7 @@ public class Bridge {
         java.net.DatagramSocket s = null;
         try {
             s = new java.net.DatagramSocket();
+            AdVpn.protectSocket(s);
             s.setSoTimeout(1200);
             java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
             for (int t = 0; t < 7; t++) {
@@ -336,6 +337,13 @@ public class Bridge {
             } catch (Exception e) { a.runOnUiThread(new Runnable() { public void run() { shareLink(); } }); }
         }}).start();
     }
+
+    @JavascriptInterface public boolean strict() { return p().getBoolean("strict", true); }
+    @JavascriptInterface public void setStrict(boolean on) {
+        p().edit().putBoolean("strict", on).apply();
+        a.runOnUiThread(new Runnable() { public void run() { a.restartVpn(); } });
+    }
+    @JavascriptInterface public String engine() { return "{\"net\":" + Filters.netCount + ",\"cos\":" + Filters.cosCount + ",\"ready\":" + Filters.ready + "}"; }
 
     // ---------- stats ----------
     @JavascriptInterface public String stats() { return Stats.json(c); }

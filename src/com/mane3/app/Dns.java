@@ -81,6 +81,76 @@ public class Dns {
         return true;
     }
 
+    /** Reads a (possibly compressed) name at o; returns name, end offset in out[0]. */
+    static String readName(byte[] r, int o, int[] out) {
+        StringBuilder sb = new StringBuilder();
+        int end = -1, jumps = 0;
+        while (o < r.length) {
+            int l = r[o] & 0xFF;
+            if (l == 0) { o++; break; }
+            if ((l & 0xC0) == 0xC0) {
+                if (o + 1 >= r.length || ++jumps > 20) return null;
+                if (end < 0) end = o + 2;
+                o = ((l & 0x3F) << 8) | (r[o + 1] & 0xFF);
+                continue;
+            }
+            if (o + 1 + l > r.length) return null;
+            if (sb.length() > 0) sb.append('.');
+            sb.append(new String(r, o + 1, l, java.nio.charset.StandardCharsets.US_ASCII));
+            o += 1 + l;
+        }
+        out[0] = end >= 0 ? end : o;
+        return sb.toString();
+    }
+
+    /** All CNAME targets in a DNS answer (to catch trackers hiding behind a site's own subdomain). */
+    public static java.util.List<String> cnames(byte[] r) {
+        java.util.ArrayList<String> out = new java.util.ArrayList<>();
+        try {
+            if (r.length < 12) return out;
+            int qd = u16(r, 4), an = u16(r, 6), o = 12;
+            int[] e = new int[1];
+            for (int i = 0; i < qd; i++) { if (readName(r, o, e) == null) return out; o = e[0] + 4; }
+            for (int i = 0; i < an && o < r.length; i++) {
+                if (readName(r, o, e) == null) return out;
+                o = e[0];
+                if (o + 10 > r.length) return out;
+                int type = u16(r, o), rdlen = u16(r, o + 8);
+                int rd = o + 10;
+                if (type == 5) { String n = readName(r, rd, e); if (n != null) out.add(n.toLowerCase(java.util.Locale.ROOT)); }
+                o = rd + rdlen;
+            }
+        } catch (Exception ignored) {}
+        return out;
+    }
+
+    /** Reset for a TCP SYN (so apps trying encrypted DNS on 1.1.1.1:443 etc. fail fast and fall back to normal DNS). */
+    public static byte[] tcpReset(byte[] p) {
+        if (p.length < 40 || (p[0] >> 4 & 0xF) != 4 || p[9] != 6) return null;
+        int ihl = (p[0] & 0xF) * 4;
+        if (p.length < ihl + 20) return null;
+        int flags = p[ihl + 13] & 0xFF;
+        if ((flags & 0x02) == 0 || (flags & 0x10) != 0) return null;   // only plain SYN
+        long seq = ((long) (p[ihl + 4] & 0xFF) << 24) | ((p[ihl + 5] & 0xFF) << 16) | ((p[ihl + 6] & 0xFF) << 8) | (p[ihl + 7] & 0xFF);
+        byte[] o = new byte[40];
+        o[0] = 0x45; o[3] = 40; o[6] = 0x40; o[8] = 64; o[9] = 6;
+        System.arraycopy(p, 16, o, 12, 4); System.arraycopy(p, 12, o, 16, 4);
+        int sum = 0; for (int i = 0; i < 20; i += 2) sum += u16(o, i);
+        while ((sum >> 16) != 0) sum = (sum & 0xFFFF) + (sum >> 16);
+        sum = ~sum & 0xFFFF; o[10] = (byte) (sum >> 8); o[11] = (byte) sum;
+        o[20] = p[ihl + 2]; o[21] = p[ihl + 3]; o[22] = p[ihl]; o[23] = p[ihl + 1];   // ports swapped
+        long ack = (seq + 1) & 0xFFFFFFFFL;
+        o[28] = (byte) (ack >> 24); o[29] = (byte) (ack >> 16); o[30] = (byte) (ack >> 8); o[31] = (byte) ack;
+        o[32] = 0x50; o[33] = 0x14;   // header 20 bytes, RST+ACK
+        int ts = 0;
+        for (int i = 12; i < 20; i += 2) ts += u16(o, i);
+        ts += 6 + 20;
+        for (int i = 20; i < 40; i += 2) ts += u16(o, i);
+        while ((ts >> 16) != 0) ts = (ts & 0xFFFF) + (ts >> 16);
+        ts = ~ts & 0xFFFF; o[36] = (byte) (ts >> 8); o[37] = (byte) ts;
+        return o;
+    }
+
     /** Build IPv4/UDP packet back to the asking app. */
     public static byte[] wrap(Query q, byte[] dns) {
         int total = 28 + dns.length;

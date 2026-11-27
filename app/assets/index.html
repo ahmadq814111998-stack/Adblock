@@ -98,6 +98,8 @@ nav a.on{color:var(--acc)}
 
 <!-- LISTS -->
 <section class="page" id="p-lists">
+  <div class="card"><div class="row" style="padding:0"><div class="t"><b>🚧 امنع البرامج من تجاوز مانع</b><span>بعض البرامج تسأل جوجل وكلاودفلير مباشرة بدل مانع. هذا يلقطها ويفلترها، ويمنع الـ DNS المشفّر.</span></div><div class="sw" id="strictSw" onclick="strictToggle()"></div></div>
+  <div class="note" id="engLine" style="margin-top:8px"></div></div>
   <div id="lists"></div>
   <button class="btn" onclick="M.updateAll();later()">🔄 حدّث كل القوائم الحين</button>
   <div class="note" id="upd" style="text-align:center"></div>
@@ -199,7 +201,7 @@ function $(i){return document.getElementById(i)}
 function J(s){try{return JSON.parse(s)}catch(e){return null}}
 function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function fmt(n){return Number(n).toLocaleString('en-US')}
-var CATS={ads:'📢 دعايات ومتتبّعات',sec:'🦠 حماية (فيروسات واحتيال)',native:'🕵️ تجسس الشركات',content:'🔞 محتوى'};
+var CATS={browser:'🌐 قوائم المتصفح (محرّك مثل uBlock)',ads:'📢 دعايات ومتتبّعات',sec:'🦠 حماية (فيروسات واحتيال)',native:'🕵️ تجسس الشركات',content:'🔞 محتوى'};
 
 function show(p){cur=p;document.querySelectorAll('.page').forEach(function(e){e.classList.toggle('on',e.id==='p-'+p)});
  document.querySelectorAll('nav a').forEach(function(e){e.classList.toggle('on',e.dataset.p===p)});window.scrollTo(0,0);refresh();
@@ -222,7 +224,9 @@ function refresh(){
  $('upd').textContent=s.updated?('آخر تحديث: '+new Date(s.updated).toLocaleString('ar-KW')+' • يتحدّث كل أسبوع لحاله'):'القوائم ما تحمّلت للحين';
  if(cur==='lists')renderLists();if(cur==='log')renderLog();if(cur==='mine')renderMine();if(cur==='dns')renderSrv();
 }
+function strictToggle(){var on=!M.strict();var go=function(){M.setStrict(on);renderLists();toast(on?'🚧 شغّال':'انطفى')};if(on)go();else askPin('إيقاف منع التحايل',go)}
 function renderLists(){
+ try{$('strictSw').classList.toggle('on',M.strict());var en=J(M.engine())||{};$('engLine').textContent=en.ready?('🌐 محرّك المتصفح: '+fmt(en.net)+' قاعدة منع + قواعد إخفاء لـ '+fmt(en.cos)+' موقع ومربع'):'🌐 محرّك المتصفح يتجهّز…'}catch(e){}
  var l=J(M.lists())||[],h='',c='';
  l.forEach(function(x){if(x.cat!==c){if(c)h+='</div>';c=x.cat;h+='<h3>'+CATS[c]+'</h3><div class="card">'}
   h+='<div class="row"><div class="t"><b>'+esc(x.name)+' '+(x.on&&!x.have?'<span class="tag">ينتظر تحميل</span>':'')+(x.have?'<span class="tag">'+(x.size/1048576).toFixed(1)+' MB</span>':'')+'</b><span>'+esc(x.desc)+'</span></div>'+

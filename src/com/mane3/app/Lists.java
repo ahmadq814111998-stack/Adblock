@@ -28,7 +28,15 @@ public class Lists {
         new L("hpop", "ads", "Pop-up Ads", "النوافذ المنبثقة والتحويلات المزعجة في المواقع", true, H + "popupads-onlydomains.txt"),
         new L("perflyst", "ads", "Android Tracking", "تتبّع أندرويد", true, "https://raw.githubusercontent.com/Perflyst/PiHoleBlocklist/master/android-tracking.txt"),
         // security
+        new L("hdoh", "sec", "منع التحايل على المانع", "يمنع البرامج اللي تحاول تتجاوز مانع (DNS مشفّر و VPN وبروكسي)", true, H + "doh-vpn-proxy-bypass-onlydomains.txt"),
+        new L("hult", "ads", "HaGeZi Ultimate 🔥", "الأقوى: يمنع أكثر شي، بس ممكن يخرّب بعض المواقع", false, H + "ultimate-onlydomains.txt"),
         new L("htif", "sec", "Threat Intelligence", "فيروسات + احتيال + تصيّد + تعدين (كبيرة)", true, H + "tif-onlydomains.txt"),
+        // browser filter lists (EasyList syntax): full rules in متصفح مانع, plain domains also go to the device list
+        new L("easylist", "browser", "EasyList", "أشهر قائمة دعايات في العالم (قواعد كاملة + إخفاء المربعات)", true, "https://raw.githubusercontent.com/easylist/easylist/gh-pages/easylist.txt"),
+        new L("easyprivacy", "browser", "EasyPrivacy", "يمنع التتبّع والإحصائيات", true, "https://raw.githubusercontent.com/easylist/easylist/gh-pages/easyprivacy.txt"),
+        new L("listear", "browser", "Liste AR", "دعايات المواقع العربية", true, "https://raw.githubusercontent.com/easylist/listear/master/Liste_AR.txt"),
+        new L("agmobile", "browser", "AdGuard Mobile", "دعايات مواقع الجوال", true, "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_11_Mobile/filter.txt"),
+        new L("agbase", "browser", "AdGuard Base", "قائمة AdGuard الكبيرة (إضافية، تقيلة شوي)", false, "https://raw.githubusercontent.com/AdguardTeam/FiltersRegistry/master/filters/filter_2_Base/filter.txt"),
         // native telemetry
         new L("hsamsung", "native", "Samsung", "تجسس سامسونج", false, H + "native.samsung-onlydomains.txt"),
         new L("hxiaomi", "native", "Xiaomi", "تجسس شاومي", false, H + "native.xiaomi-onlydomains.txt"),
@@ -47,10 +55,19 @@ public class Lists {
         return new File(d, id + ".txt");
     }
 
+    /** Lists added as default in later versions get switched on once for people who already chose their lists. */
+    static final String[] NEW_DEFAULTS_V7 = {"easylist", "easyprivacy", "listear", "agmobile", "hdoh"};
+
     public static Set<String> enabled(Context c) {
-        Set<String> s = c.getSharedPreferences("m", 0).getStringSet("lists", null);
-        if (s == null) { s = new HashSet<>(); for (L x : ALL) if (x.def) s.add(x.id); }
-        return new HashSet<>(s);
+        android.content.SharedPreferences sp = c.getSharedPreferences("m", 0);
+        Set<String> s = sp.getStringSet("lists", null);
+        if (s == null) { s = new HashSet<>(); for (L x : ALL) if (x.def) s.add(x.id); return s; }
+        s = new HashSet<>(s);
+        if (!sp.getBoolean("listsV7", false)) {
+            s.addAll(Arrays.asList(NEW_DEFAULTS_V7));
+            sp.edit().putStringSet("lists", s).putBoolean("listsV7", true).apply();
+        }
+        return s;
     }
 
     public static void setEnabled(Context c, Set<String> s) {
@@ -72,6 +89,7 @@ public class Lists {
             if (p != null) p.on(x.id, i, todo.size(), good);
         }
         Rules.compile(c);
+        try { Filters.load(c); } catch (Throwable ignored) {}
         c.getSharedPreferences("m", 0).edit().putLong("updated", System.currentTimeMillis()).apply();
         return ok;
     }

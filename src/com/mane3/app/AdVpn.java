@@ -39,6 +39,9 @@ public class AdVpn extends VpnService implements Runnable {
         {"google", "Google (بدون فلترة)", "8.8.8.8", "8.8.4.4"},
     };
 
+    static final String[] BYPASS_DNS = {"8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "1.1.1.2", "1.0.0.2", "1.1.1.3", "1.0.0.3", "9.9.9.9", "149.112.112.112",
+        "208.67.222.222", "208.67.220.220", "94.140.14.14", "94.140.15.15", "94.140.14.15", "94.140.15.16", "76.76.2.2", "76.76.10.2",
+        "185.228.168.9", "185.228.169.9", "45.90.28.0", "45.90.30.0", "8.26.56.26", "8.20.247.20", "64.6.64.6", "64.6.65.6", "77.88.8.8", "77.88.8.1"};
     public static volatile boolean running = false;   // tunnel is up
     public static volatile boolean wanted = false;    // user switched it on
     public static volatile String pausedFor = null;   // package that paused it
@@ -245,7 +248,13 @@ public class AdVpn extends VpnService implements Runnable {
         } catch (Exception ignored) {}
     }
 
+    static volatile AdVpn instance;
+
+    /** Our own direct sockets (speed test) must not go through the tunnel. */
+    public static void protectSocket(java.net.DatagramSocket s) { AdVpn v = instance; if (v != null) try { v.protect(s); } catch (Exception ignored) {} }
+
     private synchronized void startVpn() {
+        instance = this;
         try {
             prefs = getSharedPreferences("m", 0);
             synchronized (CACHE) { CACHE.clear(); }
@@ -260,6 +269,9 @@ public class AdVpn extends VpnService implements Runnable {
             b.addAddress("10.111.0.1", 32);
             b.addDnsServer(FAKE_DNS);
             b.addRoute(FAKE_DNS, 32);
+            // Apps that skip the phone's DNS and ask public servers directly: send those through us too.
+            if (getSharedPreferences("m", 0).getBoolean("strict", true))
+                for (String ip : BYPASS_DNS) { try { b.addRoute(ip, 32); } catch (Exception ignored) {} }
             b.setBlocking(true);
             // our own browser goes through the tunnel too, so blocked ads really fail (forwarding sockets are protect()ed)
             for (String pkg : prefs.getStringSet("excluded", new HashSet<String>())) {
@@ -320,7 +332,11 @@ public class AdVpn extends VpnService implements Runnable {
     void handle(byte[] p) {
         try {
             Dns.Query q = Dns.parse(p);
-            if (q == null) return;
+            if (q == null) {
+                byte[] rst = Dns.tcpReset(p);   // encrypted DNS / other traffic to public DNS servers: refuse quickly
+                if (rst != null) synchronized (this) { if (out != null && running) out.write(rst); }
+                return;
+            }
             total.incrementAndGet();
             int r = Rules.check(q.name);
             byte[] answer;
@@ -336,7 +352,12 @@ public class AdVpn extends VpnService implements Runnable {
                 answer = cached(q);
                 if (answer == null) { answer = forward(q.dns); if (answer != null) store(q, answer); }
                 if (answer == null) return;
-                if (r != Rules.ALLOW_CUSTOM && Dns.looksBlocked(answer)) {
+                if (r != Rules.ALLOW_CUSTOM && cnameBlocked(answer)) {
+                    answer = Dns.blockedAnswer(q.dns);
+                    blocked.incrementAndGet();
+                    Stats.hit(this, q.name);
+                    log(q.name, "b");
+                } else if (r != Rules.ALLOW_CUSTOM && Dns.looksBlocked(answer)) {
                     blocked.incrementAndGet();
                 Stats.hit(this, q.name);
                     log(q.name, "bs");
@@ -369,6 +390,16 @@ public class AdVpn extends VpnService implements Runnable {
         if (rcode != 0 && rcode != 3) return;            // only NOERROR / NXDOMAIN
         long ttl = rcode == 3 ? 60_000 : 180_000;
         synchronized (CACHE) { CACHE.put(key(q), new Object[]{r.clone(), System.currentTimeMillis() + ttl}); }
+    }
+
+    /** A tracker hiding behind the site's own subdomain (CNAME cloaking)? */
+    static boolean cnameBlocked(byte[] answer) {
+        for (String n : Dns.cnames(answer)) {
+            int c = Rules.check(n);
+            if (c == Rules.ALLOW_CUSTOM) return false;
+            if (c == Rules.BLOCK_LIST || c == Rules.BLOCK_CUSTOM) return true;
+        }
+        return false;
     }
 
     byte[] forward(byte[] dns) {
