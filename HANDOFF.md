@@ -33,7 +33,7 @@ Java rules (dx limits): **no lambdas, no method refs** (use anonymous classes); 
   popup/redirect guard (`onCreateWindow`, `guardNav`, silent; listed under 🛡️), **injects `assets/inject.js` into player iframes** (fetches iframe HTML itself, follows redirects, adds `<base>`),
   stealth mode 🥷 per site (auto when an "disable adblock" wall is detected), tap-to-zap 🎯 (selectors saved per host in prefs `zap`),
   word filter 🙈 (hides posts/videos whose text matches; default dance words), video panel (seek bar, swipe/double-tap, ±10/30, skip ad, cinema/zoom, speed, cast, download),
-  resume position, tabs (URL-only), bookmarks/history (prefs `b`), PiP + background audio.
+  resume position, real tabs (one WebView per tab in `webBox`, max 5 alive, oldest hidden ones freed; callbacks ignore non-current views except injection/history), bookmarks/history (prefs `b`), PiP + background audio.
 - `inject.js`: runs in page + frames. Commands via `window.__cmd(cmd,arg)` relayed to iframes by postMessage (seek, seekto, pp, rate, skip, zoom, zap, hush). Heavy scans are throttled (MutationObserver + text-node search) — keep it that way (old full-DOM scans froze pages).
 - Others: `Stats` (per-day + top domains), `PinLock` (SHA-256 PIN guards turning protection off), `Backup` (all prefs ⇄ JSON via SAF), `QsTile` (quick-settings button), `BootReceiver` (restart after boot/update), `Updater` + `InstallReceiver` (PackageInstaller session).
 
@@ -53,3 +53,4 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 5.3 real tabs: each tab keeps its own WebView + back history (`activate()`, `createWeb()`, `setupWeb(wv)`).

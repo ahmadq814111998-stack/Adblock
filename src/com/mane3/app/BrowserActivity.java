@@ -83,16 +83,58 @@ public class BrowserActivity extends Activity {
     String pre(String host) { return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn() + ";"; }
 
     // ---------- tabs ----------
-    static class Tab { String url, title; Tab(String u, String t) { url = u; title = t; } }
+    static class Tab { String url, title; WebView view; long used; Tab(String u, String t) { url = u; title = t; } }
+    FrameLayout webBox;
+    static final int MAX_LIVE = 5;
+
+    /** Show tab i (its own WebView, back history kept). Creates the view if it was never opened or got freed. */
+    void activate(int i) {
+        if (zoomMode > 0 || customView != null) exitFull();
+        Tab t = tabs.get(i);
+        for (Tab o : tabs) if (o.view != null && o != t) { o.view.setVisibility(View.GONE); o.view.onPause(); }
+        boolean fresh = t.view == null;
+        if (fresh) { t.view = createWeb(); webBox.addView(t.view, new FrameLayout.LayoutParams(-1, -1)); }
+        t.view.setVisibility(View.VISIBLE);
+        t.view.onResume();
+        t.used = System.currentTimeMillis();
+        web = t.view;
+        curTab = i;
+        if (fresh) web.loadUrl(t.url == null ? HOME : t.url);
+        String u = web.getUrl();
+        pageHost = baseHost(u == null ? "" : Uri.parse(u).getHost());
+        curUrl = u == null ? "" : u;
+        blockedHere = 0; skippedHere = 0; popsBlocked = 0;
+        synchronized (media) { media.clear(); }
+        updateDl(); updateShield();
+        url.clearFocus();
+        showUrl(u);
+        vpanel.setVisibility(View.GONE);
+        if (!fresh) {
+            inject();
+            web.evaluateJavascript("!!(document.querySelector('video')||window.__fv)", new ValueCallback<String>() { public void onReceiveValue(String v) { vpanel.setVisibility("true".equals(v) ? View.VISIBLE : View.GONE); } });
+        }
+        // free the oldest hidden pages if too many are alive
+        int live = 0;
+        for (Tab o : tabs) if (o.view != null) live++;
+        while (live > MAX_LIVE) {
+            Tab old = null;
+            for (Tab o : tabs) if (o.view != null && o != t && (old == null || o.used < old.used)) old = o;
+            if (old == null) break;
+            old.url = old.view.getUrl() == null ? old.url : old.view.getUrl();
+            webBox.removeView(old.view); old.view.destroy(); old.view = null; live--;
+        }
+        updateTabsBtn();
+        persistTabs();
+    }
     final ArrayList<Tab> tabs = new ArrayList<>();
     int curTab = 0;
     TextView bTabs;
 
     void saveTab() {
-        if (tabs.isEmpty()) return;
-        Tab t = tabs.get(curTab);
-        if (web.getUrl() != null) t.url = web.getUrl();
-        t.title = web.getTitle();
+        for (Tab t : tabs) if (t.view != null) {
+            if (t.view.getUrl() != null) t.url = t.view.getUrl();
+            if (t.view.getTitle() != null) t.title = t.view.getTitle();
+        }
     }
 
     void persistTabs() {
@@ -117,30 +159,31 @@ public class BrowserActivity extends Activity {
     void newTab(String u) {
         saveTab();
         tabs.add(new Tab(u, ""));
-        curTab = tabs.size() - 1;
-        web.loadUrl(u);
-        web.clearHistory();
-        updateTabsBtn();
-        persistTabs();
+        activate(tabs.size() - 1);
+        toast("⧉ تبويب جديد");
     }
 
     void switchTab(int i) {
         if (i == curTab || i < 0 || i >= tabs.size()) return;
         saveTab();
-        curTab = i;
-        web.loadUrl(tabs.get(i).url == null ? HOME : tabs.get(i).url);
-        updateTabsBtn();
-        persistTabs();
+        activate(i);
     }
 
     void closeTab(int i) {
-        if (tabs.size() <= 1) { tabs.get(0).url = HOME; tabs.get(0).title = ""; web.loadUrl(HOME); persistTabs(); return; }
-        tabs.remove(i);
-        if (curTab >= tabs.size()) curTab = tabs.size() - 1;
-        else if (i < curTab) curTab--;
-        web.loadUrl(tabs.get(curTab).url == null ? HOME : tabs.get(curTab).url);
-        updateTabsBtn();
-        persistTabs();
+        Tab t = tabs.remove(i);
+        if (t.view != null) { webBox.removeView(t.view); t.view.destroy(); }
+        if (tabs.isEmpty()) tabs.add(new Tab(HOME, ""));
+        int next;
+        if (i == curTab) next = Math.min(i, tabs.size() - 1);       // closed the open tab: show its neighbour
+        else next = i < curTab ? curTab - 1 : curTab;              // closed another tab: stay where you are
+        activate(Math.max(0, Math.min(next, tabs.size() - 1)));
+    }
+
+    void closeAll() {
+        for (Tab t : tabs) if (t.view != null) { webBox.removeView(t.view); t.view.destroy(); }
+        tabs.clear();
+        tabs.add(new Tab(HOME, ""));
+        activate(0);
     }
 
     void tabsDialog() {
@@ -161,7 +204,7 @@ public class BrowserActivity extends Activity {
                 if (w < n) switchTab(w);
                 else if (w == n) newTab(HOME);
                 else if (w == n + 1) closeTab(curTab);
-                else { tabs.clear(); tabs.add(new Tab(HOME, "")); curTab = 0; web.loadUrl(HOME); updateTabsBtn(); persistTabs(); }
+                else closeAll();
             }
         }).show();
     }
@@ -486,8 +529,10 @@ public class BrowserActivity extends Activity {
         prog.setMax(100);
         main.addView(prog, new LinearLayout.LayoutParams(-1, px(3)));
 
-        web = new WebView(this);
-        main.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
+        webBox = new FrameLayout(this);
+        main.addView(webBox, new LinearLayout.LayoutParams(-1, 0, 1));
+        web = createWeb();
+        webBox.addView(web, new FrameLayout.LayoutParams(-1, -1));
 
         // video panel (shown when the page has a video)
         vpanel = new LinearLayout(this);
@@ -581,24 +626,31 @@ public class BrowserActivity extends Activity {
         poll.run();
 
         setContentView(root);
-        setupWeb();
 
         Intent i = getIntent();
         loadTabs();
-        if (i != null && i.getData() != null) {
-            tabs.add(new Tab(i.getData().toString(), "")); curTab = tabs.size() - 1;
-            web.loadUrl(i.getData().toString());
-        } else if (!tabs.isEmpty()) web.loadUrl(tabs.get(curTab).url == null ? HOME : tabs.get(curTab).url);
-        else { tabs.add(new Tab(HOME, "")); curTab = 0; web.loadUrl(HOME); }
+        if (i != null && i.getData() != null) { tabs.add(new Tab(i.getData().toString(), "")); curTab = tabs.size() - 1; }
+        if (tabs.isEmpty()) { tabs.add(new Tab(HOME, "")); curTab = 0; }
+        Tab first = tabs.get(curTab);
+        first.view = web; first.used = System.currentTimeMillis();
+        web.loadUrl(first.url == null ? HOME : first.url);
         updateTabsBtn();
 
         if (Build.VERSION.SDK_INT < 29 && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED)
             requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, 3);
     }
 
+    WebView createWeb() {
+        WebView w = new WebView(this);
+        w.setBackgroundColor(Color.parseColor("#0B1220"));
+        setupWeb(w);
+        if (desktop) w.getSettings().setUserAgentString(DESKTOP_UA);
+        return w;
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
-    void setupWeb() {
-        WebSettings s = web.getSettings();
+    void setupWeb(final WebView wv) {
+        WebSettings s = wv.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
         s.setDatabaseEnabled(true);
@@ -614,8 +666,8 @@ public class BrowserActivity extends Activity {
         s.setAllowFileAccess(false);
         defaultUA = s.getUserAgentString();
         CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
-        web.addJavascriptInterface(new Object() {
+        CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true);
+        wv.addJavascriptInterface(new Object() {
             @JavascriptInterface public String home() {
                 String cu = curUrl;
                 return cu != null && cu.startsWith("file:///android_asset/") ? homeJson() : "{}";
@@ -638,13 +690,16 @@ public class BrowserActivity extends Activity {
                 }});
             }
             @JavascriptInterface public void video(final boolean has) {
+                if (wv != web) return;
                 runOnUiThread(new Runnable() { public void run() { vpanel.setVisibility(has && zoomMode == 0 ? View.VISIBLE : View.GONE); } });
             }
             @JavascriptInterface public void skipped() {
+                if (wv != web) return;
                 skippedHere++;
                 runOnUiThread(new Runnable() { public void run() { updateShield(); } });
             }
             @JavascriptInterface public void wall() {
+                if (wv != web) return;
                 runOnUiThread(new Runnable() { public void run() { onWall(); } });
             }
             @JavascriptInterface public void media(String json, String title) {
@@ -655,8 +710,9 @@ public class BrowserActivity extends Activity {
             }
         }, "MB");
 
-        web.setWebViewClient(new WebViewClient() {
+        wv.setWebViewClient(new WebViewClient() {
             @Override public void onPageStarted(WebView v, String u, Bitmap f) {
+                if (v != web) { inject(v); return; }
                 blockedHere = 0; skippedHere = 0; popsBlocked = 0;
                 synchronized (recentBlocked) { recentBlocked.clear(); }
                 pageHost = baseHost(Uri.parse(u).getHost());
@@ -669,8 +725,9 @@ public class BrowserActivity extends Activity {
                 showUrl(u);
             }
             @Override public void onPageFinished(WebView v, String u) {
-                curUrl = u;
                 addHistory(u, v.getTitle());
+                if (v != web) { inject(v); return; }
+                curUrl = u;
                 saveTab();
                 showUrl(u);
                 updateShield();
@@ -696,7 +753,7 @@ public class BrowserActivity extends Activity {
             @Override public WebResourceResponse shouldInterceptRequest(WebView v, WebResourceRequest r) {
                 Uri u = r.getUrl();
                 String host = u.getHost();
-                if (r.isForMainFrame()) pageHost = baseHost(host);
+                if (r.isForMainFrame() && v == web) pageHost = baseHost(host);
                 if (host != null && !r.isForMainFrame() && !isStealth()) {
                     int c = Rules.check(host);
                     if (c == Rules.BLOCK_LIST || c == Rules.BLOCK_CUSTOM) {
@@ -721,7 +778,7 @@ public class BrowserActivity extends Activity {
             }
         });
 
-        web.setWebChromeClient(new WebChromeClient() {
+        wv.setWebChromeClient(new WebChromeClient() {
             @Override public boolean onCreateWindow(WebView v, boolean dialog, final boolean gesture, android.os.Message msg) {
                 final WebView tmp = new WebView(BrowserActivity.this);
                 final boolean[] done = {false};
@@ -746,6 +803,7 @@ public class BrowserActivity extends Activity {
             @Override public boolean onJsAlert(WebView v, String u, String m, JsResult r) { if (m != null && m.length() < 120) toast(m); r.confirm(); return true; }
             @Override public boolean onJsConfirm(WebView v, String u, String m, JsResult r) { r.cancel(); return true; }
             @Override public void onProgressChanged(WebView v, int p) {
+                if (v != web) { if (p > 30) inject(v); return; }
                 prog.setProgress(p);
                 prog.setVisibility(p >= 100 ? View.INVISIBLE : View.VISIBLE);
                 if (p > 30) inject();
@@ -771,7 +829,7 @@ public class BrowserActivity extends Activity {
             }
         });
 
-        web.setDownloadListener(new DownloadListener() {
+        wv.setDownloadListener(new DownloadListener() {
             public void onDownloadStart(String u, String ua, String cd, String mime, long len) {
                 String l = (u + " " + mime + " " + cd).toLowerCase(Locale.ROOT);
                 boolean apk = l.contains(".apk") || l.contains("android.package-archive") || l.contains(".exe") || l.contains(".bat");
@@ -781,7 +839,7 @@ public class BrowserActivity extends Activity {
             }
         });
 
-        web.setOnLongClickListener(new View.OnLongClickListener() {
+        wv.setOnLongClickListener(new View.OnLongClickListener() {
             public boolean onLongClick(View v) {
                 WebView.HitTestResult h = web.getHitTestResult();
                 final String extra = h.getExtra();
@@ -801,8 +859,14 @@ public class BrowserActivity extends Activity {
         });
     }
 
+    void inject(WebView w) {
+        String u = w.getUrl();
+        String h = w == web ? pageHost : baseHost(u == null ? "" : Uri.parse(u).getHost());
+        w.evaluateJavascript(pre(h) + INJ, null);
+    }
+
     void inject() {
-        web.evaluateJavascript(pre(pageHost) + INJ, null);
+        inject(web);
         if (rate != 1f) applyRate();
         if (zoomMode > 0) applyZoom();
     }
@@ -1466,5 +1530,8 @@ public class BrowserActivity extends Activity {
         if (!keep) web.onPause();
     }
     @Override protected void onResume() { super.onResume(); web.onResume(); }
-    @Override protected void onDestroy() { web.destroy(); super.onDestroy(); }
+    @Override protected void onDestroy() {
+        for (Tab t : tabs) if (t.view != null) try { t.view.destroy(); } catch (Exception ignored) {}
+        super.onDestroy();
+    }
 }
