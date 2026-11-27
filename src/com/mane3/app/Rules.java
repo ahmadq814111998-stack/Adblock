@@ -125,7 +125,7 @@ public class Rules {
             o.writeInt(u);
             for (long v : arr) o.writeLong(v);
         } catch (Exception ignored) {}
-        prefs(c).edit().putInt("count", u).apply();
+        prefs(c).edit().putInt("count", u).putInt("rulesVer", Updater.myCode(c)).apply();
     }
 
     /** Fast load from cache (or compile if missing). */
@@ -140,6 +140,13 @@ public class Rules {
                 long[] arr = new long[n];
                 for (int k = 0; k < n; k++) arr[k] = in.readLong();
                 hashes = arr; count = n;
+                // app updated (new built-in list)? rebuild in the background, keep using the cached table meanwhile
+                final Context ac = c.getApplicationContext();
+                int ver = Updater.myCode(ac);
+                if (prefs(ac).getInt("rulesVer", 0) != ver) {
+                    prefs(ac).edit().putInt("rulesVer", ver).apply();
+                    new Thread(new Runnable() { public void run() { compile(ac); } }).start();
+                }
                 return;
             } catch (Exception ignored) {}
         }
