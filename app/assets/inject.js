@@ -164,6 +164,59 @@
   ['touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, zapHandler, true); });
   document.addEventListener('touchstart', function (e) { if (zapOn) { e.preventDefault(); e.stopPropagation(); } }, { capture: true, passive: false });
 
+  // ---------- next episode ----------
+  function epNum(t) {
+    var m = String(t || '').replace(/[٠-٩]/g, function (d) { return '٠١٢٣٤٥٦٧٨٩'.indexOf(d); })
+      .match(/(?:الحلقة|حلقة|episode|ep\.?|e)\s*(\d{1,4})(?!\d)/i);
+    return m ? +m[1] : null;
+  }
+  function nextEpLink() {
+    var h1 = document.querySelector('h1');
+    var cur = epNum((h1 ? h1.innerText : '') + ' ' + document.title);
+    if (cur == null) cur = epNum(decodeURIComponent(location.pathname).replace(/-/g, ' '));
+    if (cur == null) return null;
+    var found = null;
+    document.querySelectorAll('a[href]').forEach(function (a) {
+      if (found) return;
+      var t = (a.innerText || a.getAttribute('title') || '').trim();
+      if (!t || t.length > 90) return;
+      var n = epNum(t);
+      if (n === cur + 1 && a.href.indexOf('http') === 0 && a.href.split('#')[0] !== location.href.split('#')[0]) found = a;
+    });
+    return found;
+  }
+  var epBox = null, epTimer = null;
+  function cancelNext() { clearInterval(epTimer); if (epBox) epBox.remove(); epBox = null; }
+  function offerNext(auto) {
+    var a = nextEpLink();
+    if (!a) return 0;
+    cancelNext();
+    var left = 6;
+    epBox = document.createElement('div');
+    epBox.style.cssText = 'position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:2147483647;background:#0F172Aee;color:#fff;border:1px solid #334155;border-radius:16px;padding:14px 16px;font:600 15px system-ui,sans-serif;text-align:center;direction:rtl;min-width:240px';
+    var label = (a.innerText || '').replace(/\s+/g, ' ').trim();
+    epBox.innerHTML = '<div>⏭️ ' + label.replace(/[<>&]/g, '') + '</div><div id="__epc" style="color:#94A3B8;font-weight:400;margin:6px 0 10px"></div>';
+    var go = document.createElement('button'), no = document.createElement('button');
+    go.textContent = '▶ شغّلها الحين'; no.textContent = 'إلغاء';
+    [go, no].forEach(function (b) { b.style.cssText = 'margin:0 4px;padding:8px 14px;border-radius:10px;border:0;font:600 14px system-ui;color:#fff;background:' + (b === go ? '#15803D' : '#334155'); epBox.appendChild(b); });
+    go.onclick = function () { cancelNext(); location.href = a.href; };
+    no.onclick = cancelNext;
+    document.documentElement.appendChild(epBox);
+    var c = epBox.querySelector('#__epc');
+    if (!auto) { c.textContent = ''; return 1; }
+    c.textContent = 'تبدا بعد ' + left;
+    epTimer = setInterval(function () {
+      left--;
+      if (left <= 0) { cancelNext(); location.href = a.href; } else c.textContent = 'تبدا بعد ' + left;
+    }, 1000);
+    return 1;
+  }
+  function onEnded(v) {
+    if (v && (isAd() || !isFinite(v.duration) || v.duration < 180)) return;
+    if (TOP) { if (window.__autonext !== false) offerNext(true); }
+    else try { parent.postMessage({ __mend: 1 }, '*'); } catch (e) {}
+  }
+
   // ---------- reader mode / text for read-aloud ----------
   function article() {
     if (!document.body) return null;
@@ -229,6 +282,7 @@
     if (cmd === 'zoom') return zoomLocal(a);
     if (cmd === 'zap') { zapOn = !!a; return 1; }
     if (cmd === 'reader') return TOP ? reader() : 0;
+    if (cmd === 'nextep') return TOP ? offerNext(false) : 0;
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
     if (cmd === 'pause') { document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); return 1; }
     if (cmd === 'intro') { window.__intro = a; return 1; }
@@ -249,6 +303,7 @@
     var d = e.data;
     if (!d || typeof d !== 'object') return;
     if (d.__mc) { local(d.__mc, d.a); relay(d.__mc, d.a); }
+    if (d.__mend) { if (TOP) { if (window.__autonext !== false) offerNext(true); } else try { parent.postMessage({ __mend: 1 }, '*'); } catch (x) {} }
     if (d.__mi) { if (TOP) { window.__vi = d.__mi; window.__vit = Date.now(); } else try { parent.postMessage({ __mi: d.__mi }, '*'); } catch (x) {} }
     if (d.__mfv) { window.__fv = true; if (!TOP) try { parent.postMessage({ __mfv: 1 }, '*'); } catch (x) {} }
   });
@@ -258,6 +313,7 @@
       if (v.__mh) return;
       v.__mh = 1;
       v.addEventListener('play', function () { if (window.__mrate != 1 && !isAd()) v.playbackRate = window.__mrate; });
+      v.addEventListener('ended', function () { onEnded(v); });
       v.addEventListener('playing', function () {
         var it = +window.__intro || 0;
         if (it > 0 && !v.__introDone && !isAd() && v.currentTime < 3 && isFinite(v.duration) && v.duration > it + 60) {

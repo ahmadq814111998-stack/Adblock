@@ -234,6 +234,59 @@ public class Bridge {
         a.runOnUiThread(new Runnable() { public void run() { a.restartVpn(); } });
     }
 
+    // ---------- native lock (fingerprint or PIN) ----------
+    @JavascriptInterface public void askLock(final String why, final int id) {
+        a.runOnUiThread(new Runnable() { public void run() {
+            PinLock.ask(a, why, new Runnable() { public void run() { a.js("window.__lockOk&&__lockOk(" + id + ")"); } });
+        }});
+    }
+    @JavascriptInterface public boolean bioAvailable() { return PinLock.bioAvailable(c); }
+    @JavascriptInterface public boolean bioOn() { return PinLock.bioOn(c); }
+    @JavascriptInterface public void setBio(boolean on) { PinLock.setBio(c, on); }
+    @JavascriptInterface public boolean browserLock() { return c.getSharedPreferences("b", 0).getBoolean("lock", false); }
+    @JavascriptInterface public void setBrowserLock(boolean on) { c.getSharedPreferences("b", 0).edit().putBoolean("lock", on).apply(); }
+
+    // ---------- DNS speed test ----------
+    static int ping(String ip) {
+        int best = -1;
+        for (int t = 0; t < 3; t++) {
+            java.net.DatagramSocket s = null;
+            try {
+                byte[] q = dnsQuery("www.google.com");
+                s = new java.net.DatagramSocket();
+                s.setSoTimeout(1500);
+                long t0 = System.nanoTime();
+                s.send(new java.net.DatagramPacket(q, q.length, java.net.InetAddress.getByName(ip), 53));
+                byte[] r = new byte[1500];
+                s.receive(new java.net.DatagramPacket(r, r.length));
+                int ms = (int) ((System.nanoTime() - t0) / 1000000);
+                if (best < 0 || ms < best) best = ms;
+            } catch (Exception ignored) {
+            } finally { if (s != null) s.close(); }
+        }
+        return best;
+    }
+
+    static byte[] dnsQuery(String name) {
+        java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+        int id = (int) (Math.random() * 65535);
+        b.write(id >> 8); b.write(id & 255); b.write(1); b.write(0); b.write(0); b.write(1);
+        for (int i = 0; i < 6; i++) b.write(0);
+        for (String part : name.split("\\.")) { b.write(part.length()); for (char ch : part.toCharArray()) b.write(ch); }
+        b.write(0); b.write(0); b.write(1); b.write(0); b.write(1);
+        return b.toByteArray();
+    }
+
+    @JavascriptInterface public void speedTest() {
+        new Thread(new Runnable() { public void run() {
+            try {
+                JSONObject o = new JSONObject();
+                for (String[] sv : AdVpn.SERVERS) o.put(sv[0], ping(sv[2]));
+                a.js("window.__speed&&__speed(" + o.toString() + ")");
+            } catch (Exception ignored) {}
+        }}).start();
+    }
+
     // ---------- stats ----------
     @JavascriptInterface public String stats() { return Stats.json(c); }
     @JavascriptInterface public void resetStats() { Stats.reset(c); }

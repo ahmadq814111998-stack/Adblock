@@ -154,6 +154,7 @@ nav a.on{color:var(--acc)}
     <div id="pinState" style="margin:8px 0;font-weight:700"></div>
     <button class="btn s" onclick="pinSetup()">🔢 حط / غيّر الرقم السري</button>
     <button class="btn s" id="pinDel" onclick="pinRemove()">🗑️ شيل الرقم السري</button>
+    <div id="lockOpts"></div>
   </div>
   <h3>💾 نسخة احتياطية</h3>
   <div class="card">
@@ -168,6 +169,7 @@ nav a.on{color:var(--acc)}
   </div>
   <h3>🌐 سيرفر DNS</h3>
   <div class="note" style="margin:6px 2px">السيرفر اللي تروح له الطلبات بعد ما تعدّي على قوائمك. AdGuard يمنع زيادة فوق القوائم.</div>
+  <button class="btn" id="spdBtn" onclick="this.textContent='⏳ أقيس…';M.speedTest()">⚡ اختبر سرعة السيرفرات</button>
   <div class="card" id="srvs"></div>
   <div class="note" style="text-align:center;margin:16px 0" id="verLine"></div>
 </section>
@@ -247,8 +249,15 @@ function addC(k,id){if(k==='allow'&&M.hasPin()&&!window.__okA){return askPin('ا
 function doTest(){var r=M.test($('tst').value);$('tstR').innerHTML=r==='bad'?'اكتب موقع صحيح':(ST[r]?'<span style="color:'+ST[r][0]+'">● '+ST[r][1]+'</span>':'')+(r==='a'?' <span class="note">(السيرفر ممكن يمنعه بعد)</span>':'')}
 function listToggle(id,on){var go=function(){M.setList(id,on);later()};if(on)go();else askPin('إيقاف قائمة',go)}
 function srvPick(id){askPin('تغيير السيرفر',function(){M.setServer(id);later()})}
+var SPEED=null;
+window.__speed=function(o){SPEED=o;$('spdBtn').textContent='⚡ اختبر سرعة السيرفرات';
+ var st=J(M.state())||{},best=null;Object.keys(o).forEach(function(k){if(o[k]<0)return;if(st.clean&&k!=='adguard_family')return;if(best===null||o[k]<o[best])best=k});
+ renderSrv(); if(!best)return toast('ما قدرت أوصل للسيرفرات');
+ var nm=(J(M.servers())||[]).filter(function(x){return x.id===best})[0];
+ $('sheetIn').innerHTML='<b style="font-size:17px">⚡ الأسرع: '+esc(nm?nm.name:best)+'</b><div class="note" style="margin:8px 0">'+o[best]+' ms</div><button class="btn g" id="spdGo">حوّلني عليه</button><button class="btn s" onclick="closeSheet()">خلّه</button>';
+ $('sheet').classList.add('on'); $('spdGo').onclick=function(){closeSheet();srvPick(best)} };
 function renderSrv(){var l=J(M.servers())||[];
- $('srvs').innerHTML=l.map(function(s){return '<div class="row" onclick="srvPick(\''+s.id+'\')"><div class="t"><b>'+esc(s.name)+'</b><span dir="ltr">'+s.ip+'</span></div><div class="sw '+(s.on?'on':'')+'"></div></div>'}).join('')}
+ $('srvs').innerHTML=l.map(function(s){var ms=SPEED&&SPEED[s.id]!=null?(SPEED[s.id]<0?' • ❌':' • '+SPEED[s.id]+' ms'):'';return '<div class="row" onclick="srvPick(\''+s.id+'\')"><div class="t"><b>'+esc(s.name)+'<span style="color:#4ADE80;font-weight:400">'+ms+'</span></b><span dir="ltr">'+s.ip+'</span></div><div class="sw '+(s.on?'on':'')+'"></div></div>'}).join('')}
 function loadApps(){if(appsCache)return renderApps();setTimeout(function(){appsCache=J(M.apps())||[];renderApps()},30)}
 function renderApps(){if(!appsCache)return;var q=$('aq').value.trim().toLowerCase();
  var l=appsCache.slice().sort(function(a,b){return (b.ex-a.ex)});
@@ -270,18 +279,17 @@ function runTest(){var ok=0,h='';TESTS.forEach(function(t){var r=M.test(t[1]),b=
  $('tRes').innerHTML='<div style="text-align:center;margin:12px 0"><div style="font-size:40px;font-weight:800;color:'+col+'">'+pct+'%</div><div class="note">انمنع '+ok+' من '+TESTS.length+(AdVpnOff()?' • المانع طافي، شغّله عشان ينمنعون فعلياً':'')+'</div></div>'+h}
 function AdVpnOff(){var s=J(M.state())||{};return !s.on}
 // ---------- PIN ----------
-function askPin(why,cb){ if(!M.hasPin())return cb();
- $('sheetIn').innerHTML='<b style="font-size:17px">🔒 '+esc(why)+'</b><input id="pinIn" type="password" inputmode="numeric" placeholder="الرقم السري" style="margin:14px 0;text-align:center;font-size:22px;letter-spacing:6px"><button class="btn g" id="pinOk">تمام</button><button class="btn s" onclick="closeSheet()">إلغاء</button>';
- $('sheet').classList.add('on'); setTimeout(function(){var e=$('pinIn');if(e)e.focus()},100);
- $('pinOk').onclick=function(){ if(__chk($('pinIn').value)){closeSheet();cb()} else {toast('❌ الرقم غلط');$('pinIn').value=''} } }
+var __lid=0,__lcb={};
+function askPin(why,cb){ if(!M.hasPin())return cb(); var id=++__lid; __lcb[id]=cb; M.askLock(why,id) }
+window.__lockOk=function(id){var f=__lcb[id];delete __lcb[id];if(f)f()};
 function pinSetup(){ askPin('الرقم الحالي',function(){
  $('sheetIn').innerHTML='<b style="font-size:17px">🔢 الرقم السري الجديد</b><input id="p1" type="password" inputmode="numeric" placeholder="4 أرقام أو أكثر" style="margin:12px 0 8px;text-align:center;font-size:20px"><input id="p2" type="password" inputmode="numeric" placeholder="عيده مرة ثانية" style="margin:0 0 12px;text-align:center;font-size:20px"><div class="note">⚠️ لا تنساه. إذا نسيته لازم تمسح البرنامج وتثبّته من جديد.</div><button class="btn g" id="pOk">احفظ</button><button class="btn s" onclick="closeSheet()">إلغاء</button>';
  $('sheet').classList.add('on');
  $('pOk').onclick=function(){var a=$('p1').value,b=$('p2').value; if(a.length<4)return toast('لازم 4 أرقام على الأقل'); if(a!==b)return toast('الرقمين مو نفس بعض');
-  window.__op=window.__op||''; M.setPin(window.__lastPin||'',a); closeSheet(); toast('🔒 انحفظ الرقم السري'); refresh(); } }) }
-function pinRemove(){ askPin('شيل الرقم السري',function(){ M.setPin(window.__lastPin||'',''); toast('انشال الرقم السري'); refresh(); }) }
+  if(!M.setPin('',a))return toast('❌ ما انحفظ، جرّب مرة ثانية'); closeSheet(); toast('🔒 انحفظ الرقم السري'); refresh(); } }) }
+function lockOpt(k){askPin('تغيير إعدادات القفل',function(){ if(k==='bio')M.setBio(!M.bioOn()); else M.setBrowserLock(!M.browserLock()); refresh() })}
+function pinRemove(){ askPin('شيل الرقم السري',function(){ M.setPin('',''); toast('انشال الرقم السري'); refresh(); }) }
 // remember the last correct PIN for setPin(old,new)
-(function(){var c=M.checkPin.bind(M);window.__chk=function(v){var ok=c(v);if(ok)window.__lastPin=v;return ok}})();
 function bigToggle(){var s=J(M.state())||{}; if(s.on) askPin('إيقاف المانع',function(){M.toggle();later()}); else {M.toggle();later()}}
 function cleanToggle(el){var on=!el.classList.contains('on'); var go=function(){M.setClean(on);el.classList.toggle('on',on);toast(on?'🧼 الوضع النظيف شغّال':'انطفى الوضع النظيف')}; if(on)go(); else askPin('إيقاف الوضع النظيف',go)}
 
@@ -321,7 +329,9 @@ function renderUpd(){var u=J(M.upd())||{},v=M.version(),h='',b='';
   (u.state==='available'?'<button class="btn" style="background:#0369A1" onclick="M.doUpdate()">حدّث الحين</button>':'<button class="btn s" onclick="M.checkUpdate(true);later()">🔄 تأكد من التحديثات</button>');
  $('updCard').innerHTML=h;$('verLine').textContent='مانع '+v}
 
-var _r=refresh;refresh=function(){_r();try{if(cur==='dns')renderSch();else schEdit=null;renderUpd();if(cur==='home')renderStats();var hp=M.hasPin();$('pinState').textContent=hp?'🔒 القفل شغّال':'🔓 ما في رقم سري';$('pinDel').style.display=hp?'block':'none'}catch(e){}};
+var _r=refresh;refresh=function(){_r();try{if(cur==='dns')renderSch();else schEdit=null;renderUpd();if(cur==='home')renderStats();var hp=M.hasPin();$('pinState').textContent=hp?'🔒 القفل شغّال':'🔓 ما في رقم سري';$('pinDel').style.display=hp?'block':'none';
+ if(cur==='dns')$('lockOpts').innerHTML=hp?((M.bioAvailable()?'<div class="row"><div class="t"><b>👆 افتح بالبصمة</b><span>بدل ما تكتب الرقم كل مرة</span></div><div class="sw'+(M.bioOn()?' on':'')+'" onclick="lockOpt(\'bio\')"></div></div>':'')+
+  '<div class="row"><div class="t"><b>🌐 قفّل متصفح مانع</b><span>يطلب البصمة أو الرقم لما تفتحه</span></div><div class="sw'+(M.browserLock()?' on':'')+'" onclick="lockOpt(\'br\')"></div></div>'):''}catch(e){}};
 refresh();setInterval(refresh,1500);
 M.checkUpdate(false);
 if(M.firstRun())M.updateAll();

@@ -182,11 +182,54 @@ public class BrowserActivity extends Activity {
         toast("🔊 أقرا الصفحة • من ⋮ توقفها");
     }
 
+    boolean wipeOn() { return getSharedPreferences("b", 0).getBoolean("wipe", false); }
+
+    void wipeAll() {
+        try {
+            putArr("hist", new JSONArray());
+            getSharedPreferences("b", 0).edit().remove("tabs").remove("cur").apply();
+            CookieManager.getInstance().removeAllCookies(null);
+            CookieManager.getInstance().flush();
+            WebStorage.getInstance().deleteAllData();
+            for (Tab t : tabs) if (t.view != null) { t.view.clearCache(true); t.view.clearHistory(); }
+        } catch (Exception ignored) {}
+    }
+
+    // ---------- browser lock ----------
+    boolean unlocked = false;
+    View lockCover;
+
+    boolean lockOn() { return getSharedPreferences("b", 0).getBoolean("lock", false) && PinLock.has(this); }
+
+    void checkLock() {
+        if (!lockOn() || unlocked) { if (lockCover != null) lockCover.setVisibility(View.GONE); return; }
+        if (lockCover == null) {
+            LinearLayout c = new LinearLayout(this);
+            c.setOrientation(LinearLayout.VERTICAL); c.setGravity(Gravity.CENTER);
+            c.setBackgroundColor(Color.parseColor("#0B1220")); c.setClickable(true);
+            TextView t = new TextView(this); t.setText("🔒\nمتصفح مانع مقفول"); t.setTextSize(22); t.setTextColor(Color.WHITE); t.setGravity(Gravity.CENTER);
+            c.addView(t);
+            TextView b = btn("🔓 افتح", new View.OnClickListener() { public void onClick(View v) { askUnlock(); } });
+            b.setTextSize(18); b.setPadding(px(30), px(16), px(30), px(16));
+            c.addView(b);
+            ((FrameLayout) web.getRootView().findViewById(android.R.id.content)).addView(c, new FrameLayout.LayoutParams(-1, -1));
+            lockCover = c;
+        }
+        lockCover.setVisibility(View.VISIBLE);
+        lockCover.bringToFront();
+        askUnlock();
+    }
+
+    void askUnlock() {
+        PinLock.ask(this, "افتح متصفح مانع", new Runnable() { public void run() { unlocked = true; if (lockCover != null) lockCover.setVisibility(View.GONE); } });
+    }
+
     boolean darkOn() { return getSharedPreferences("b", 0).getBoolean("dark", false); }
     int introFor(String host) { return getSharedPreferences("b", 0).getInt("intro:" + host, 0); }
 
     String pre(String host) {
         return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn()
+            + ";window.__autonext=" + getSharedPreferences("b", 0).getBoolean("autonext", true)
             + ";window.__dark=" + darkOn() + ";window.__intro=" + introFor(pageHost) + ";window.__cine=" + (zoomMode > 0 || customView != null) + ";";
     }
 
@@ -1423,6 +1466,9 @@ public class BrowserActivity extends Activity {
             "🌙 الوضع الليلي للمواقع: " + (darkOn() ? "شغّال ✅" : "طافي"),
             "⏲️ مؤقت النوم" + (sleepAtEnd || sleepAt > 0 ? " ✅" : ""),
             "⏭️ تخطّي المقدمة لهالموقع" + (introFor(pageHost) > 0 ? " (" + tfmt(introFor(pageHost)) + ")" : ""),
+            "⏭️ الحلقة الجاية",
+            "▶️ الحلقة الجاية تبدا بروحها: " + (getSharedPreferences("b", 0).getBoolean("autonext", true) ? "شغّال ✅" : "طافي"),
+            "🧹 امسح السجل لما أسكّر المتصفح: " + (wipeOn() ? "شغّال ✅" : "طافي"),
             "🖨️ احفظ الصفحة PDF",
             "📌 حط الموقع على شاشة التلفون",
             "📖 وضع القراءة",
@@ -1450,6 +1496,9 @@ public class BrowserActivity extends Activity {
             else if (it.startsWith("🌙")) { bp.edit().putBoolean("dark", !darkOn()).apply(); toast(darkOn() ? "🌙 الوضع الليلي شغّال" : "انطفى الوضع الليلي"); for (Tab t : tabs) if (t.view != null) t.view.reload(); }
             else if (it.startsWith("⏲️")) sleepDialog();
             else if (it.startsWith("⏭️")) introDialog();
+            else if (it.startsWith("⏭️ الحلقة")) web.evaluateJavascript("window.__cmd?__cmd('nextep',0):0", new ValueCallback<String>() { public void onReceiveValue(String v) { if (!"1".equals(v)) toast("ما لقيت الحلقة الجاية في هالصفحة"); } });
+            else if (it.startsWith("▶️ الحلقة")) { boolean on = !bp.getBoolean("autonext", true); bp.edit().putBoolean("autonext", on).apply(); toast(on ? "▶️ لما تخلص الحلقة تبدا اللي بعدها" : "انطفى التشغيل التلقائي"); }
+            else if (it.startsWith("🧹 امسح السجل")) { bp.edit().putBoolean("wipe", !wipeOn()).apply(); toast(wipeOn() ? "🧹 بيمسح السجل والكوكيز كل ما تسكّر المتصفح" : "انطفى المسح التلقائي"); }
             else if (it.startsWith("📌")) pinSite();
             else if (it.startsWith("📖")) web.evaluateJavascript("window.__cmd?__cmd('reader',1):0", new ValueCallback<String>() { public void onReceiveValue(String v) { if (!"1".equals(v)) toast("ما لقيت مقال في هالصفحة"); } });
             else if (it.startsWith("🔊") || it.startsWith("⏹️")) readAloud();
@@ -1843,8 +1892,16 @@ public class BrowserActivity extends Activity {
         boolean keep = (playing && bgOn()) || (Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode());
         if (!keep) web.onPause();
     }
-    @Override protected void onResume() { super.onResume(); web.onResume(); }
+    @Override protected void onResume() { super.onResume(); web.onResume(); checkLock(); }
+
+    @Override protected void onStop() {
+        super.onStop();
+        boolean pip = Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode();
+        if (!pip && !(playing && bgOn())) unlocked = false;
+        if (isFinishing() && wipeOn()) wipeAll();
+    }
     @Override protected void onDestroy() {
+        if (wipeOn()) wipeAll();
         if (tts != null) try { tts.shutdown(); } catch (Exception ignored) {}
         for (Tab t : tabs) if (t.view != null) try { t.view.destroy(); } catch (Exception ignored) {}
         super.onDestroy();
