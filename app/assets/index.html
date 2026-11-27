@@ -248,16 +248,30 @@ function renderMine(){var c=J(M.custom())||{allow:[],block:[]};
 function addC(k,id){if(k==='allow'&&M.hasPin()&&!window.__okA){return askPin('السماح بموقع',function(){window.__okA=1;addC(k,id);window.__okA=0})}var v=$(id).value;var r=M.addCustom(k,v);if(!r){toast('اكتب موقع صحيح');return}$(id).value='';renderMine()}
 function doTest(){var r=M.test($('tst').value);$('tstR').innerHTML=r==='bad'?'اكتب موقع صحيح':(ST[r]?'<span style="color:'+ST[r][0]+'">● '+ST[r][1]+'</span>':'')+(r==='a'?' <span class="note">(السيرفر ممكن يمنعه بعد)</span>':'')}
 function listToggle(id,on){var go=function(){M.setList(id,on);later()};if(on)go();else askPin('إيقاف قائمة',go)}
-function srvPick(id){askPin('تغيير السيرفر',function(){M.setServer(id);later()})}
+function srvPick(id){var st=J(M.state())||{};
+ if(st.clean&&id!=='adguard_family'){toast('🧼 الوضع النظيف شغّال، لازم يظل على AdGuard العائلي. طفّه أول من الرئيسية.');return}
+ askPin('تغيير السيرفر',function(){M.setServer(id);later()})}
 var SPEED=null;
 window.__speed=function(o){SPEED=o;$('spdBtn').textContent='⚡ اختبر سرعة السيرفرات';
- var st=J(M.state())||{},best=null;Object.keys(o).forEach(function(k){if(o[k]<0)return;if(st.clean&&k!=='adguard_family')return;if(best===null||o[k]<o[best])best=k});
- renderSrv(); if(!best)return toast('ما قدرت أوصل للسيرفرات');
- var nm=(J(M.servers())||[]).filter(function(x){return x.id===best})[0];
- $('sheetIn').innerHTML='<b style="font-size:17px">⚡ الأسرع: '+esc(nm?nm.name:best)+'</b><div class="note" style="margin:8px 0">'+o[best]+' ms</div><button class="btn g" id="spdGo">حوّلني عليه</button><button class="btn s" onclick="closeSheet()">خلّه</button>';
- $('sheet').classList.add('on'); $('spdGo').onclick=function(){closeSheet();srvPick(best)} };
+ var st=J(M.state())||{},sv=J(M.servers())||[],ok=sv.filter(function(x){return o[x.id]!=null&&o[x.id]>=0});
+ renderSrv(); if(!ok.length)return toast('ما قدرت أوصل للسيرفرات، تأكد من النت');
+ ok.sort(function(a,b){return o[a.id]-o[b.id]});
+ var cur=sv.filter(function(x){return x.on})[0];
+ var pick=function(list){return list.length?list[0]:null};
+ var opts=st.clean?[pick(ok.filter(function(x){return x.id==='adguard_family'}))]:[pick(ok.filter(function(x){return x.ads})),pick(ok)];
+ var h='<b style="font-size:17px">⚡ النتيجة</b><div class="note" style="margin:6px 0 10px">'+(st.clean?'🧼 الوضع النظيف شغّال، فيظل على العائلي.':'الأرقام بالجزء من الألف ثانية، كل ما قلّت أسرع.')+'</div>';
+ var seen={};opts.forEach(function(x,i){if(!x||seen[x.id])return;seen[x.id]=1;var isCur=cur&&cur.id===x.id;
+  h+='<button class="btn '+(isCur?'s':'g')+'" data-id="'+x.id+'">'+(i===0&&!st.clean?'🛡️ الأسرع اللي يمنع دعايات: ':'⚡ الأسرع: ')+esc(x.name.replace(/ \(.*\)/,''))+' • '+o[x.id]+' ms'+(isCur?' (حالياً)':'')+'</button>'});
+ if(!st.clean)h+='<div class="note">السيرفرات اللي ما تمنع دعايات ما تأثر على المنع، لأن قوائم مانع تمنع قبلها. بس AdGuard و Control D يمنعون زيادة فوقها.</div>';
+ h+='<button class="btn s" onclick="closeSheet()">خلّه</button>';
+ $('sheetIn').innerHTML=h; $('sheet').classList.add('on');
+ [].forEach.call(document.querySelectorAll('#sheetIn .btn[data-id]'),function(b){b.onclick=function(){closeSheet();if(!(cur&&cur.id===b.dataset.id))srvPick(b.dataset.id)}}) };
 function renderSrv(){var l=J(M.servers())||[];
- $('srvs').innerHTML=l.map(function(s){var ms=SPEED&&SPEED[s.id]!=null?(SPEED[s.id]<0?' • ❌':' • '+SPEED[s.id]+' ms'):'';return '<div class="row" onclick="srvPick(\''+s.id+'\')"><div class="t"><b>'+esc(s.name)+'<span style="color:#4ADE80;font-weight:400">'+ms+'</span></b><span dir="ltr">'+s.ip+'</span></div><div class="sw '+(s.on?'on':'')+'"></div></div>'}).join('')}
+ $('srvs').innerHTML=l.map(function(s){var v=SPEED?SPEED[s.id]:null,ms='';
+  if(v!=null){var best=Math.min.apply(null,Object.keys(SPEED).map(function(k){return SPEED[k]<0?1e9:SPEED[k]}));
+   var col=v<0?'#F87171':v<=60?'#4ADE80':v<=150?'#FBBF24':'#FB923C';
+   ms=' <span dir="ltr" style="color:'+col+';font-weight:600;font-size:13px">'+(v<0?'❌ ما رد':v+' ms')+(v===best?' ⭐':'')+'</span>'}
+  return '<div class="row" onclick="srvPick(\''+s.id+'\')"><div class="t"><b>'+esc(s.name)+ms+'</b><span dir="ltr">'+s.ip+'</span></div><div class="sw '+(s.on?'on':'')+'"></div></div>'}).join('')}
 function loadApps(){if(appsCache)return renderApps();setTimeout(function(){appsCache=J(M.apps())||[];renderApps()},30)}
 function renderApps(){if(!appsCache)return;var q=$('aq').value.trim().toLowerCase();
  var l=appsCache.slice().sort(function(a,b){return (b.ex-a.ex)});

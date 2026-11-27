@@ -140,6 +140,7 @@ public class Bridge {
             for (String[] s : AdVpn.SERVERS) {
                 JSONObject o = new JSONObject();
                 o.put("id", s[0]); o.put("name", s[1]); o.put("ip", s[2]); o.put("on", s[0].equals(cur));
+                o.put("ads", s[0].startsWith("adguard") || s[0].equals("controld"));
                 arr.put(o);
             }
             return arr.toString();
@@ -247,23 +248,27 @@ public class Bridge {
     @JavascriptInterface public void setBrowserLock(boolean on) { c.getSharedPreferences("b", 0).edit().putBoolean("lock", on).apply(); }
 
     // ---------- DNS speed test ----------
+    /** Best of 6 round trips. Warm-up query first so the server has the answer cached (we measure the network, not its cache misses). */
     static int ping(String ip) {
         int best = -1;
-        for (int t = 0; t < 3; t++) {
-            java.net.DatagramSocket s = null;
-            try {
-                byte[] q = dnsQuery("www.google.com");
-                s = new java.net.DatagramSocket();
-                s.setSoTimeout(1500);
-                long t0 = System.nanoTime();
-                s.send(new java.net.DatagramPacket(q, q.length, java.net.InetAddress.getByName(ip), 53));
-                byte[] r = new byte[1500];
-                s.receive(new java.net.DatagramPacket(r, r.length));
-                int ms = (int) ((System.nanoTime() - t0) / 1000000);
-                if (best < 0 || ms < best) best = ms;
-            } catch (Exception ignored) {
-            } finally { if (s != null) s.close(); }
-        }
+        java.net.DatagramSocket s = null;
+        try {
+            s = new java.net.DatagramSocket();
+            s.setSoTimeout(1200);
+            java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
+            for (int t = 0; t < 7; t++) {
+                try {
+                    byte[] q = dnsQuery("google.com");
+                    long t0 = System.nanoTime();
+                    s.send(new java.net.DatagramPacket(q, q.length, addr, 53));
+                    byte[] r = new byte[1500];
+                    s.receive(new java.net.DatagramPacket(r, r.length));
+                    int ms = (int) ((System.nanoTime() - t0) / 1000000);
+                    if (t > 0 && (best < 0 || ms < best)) best = ms;   // t==0 is the warm-up
+                } catch (java.net.SocketTimeoutException te) { /* lost packet: try again */ }
+            }
+        } catch (Exception ignored) {
+        } finally { if (s != null) s.close(); }
         return best;
     }
 
@@ -280,10 +285,18 @@ public class Bridge {
     @JavascriptInterface public void speedTest() {
         new Thread(new Runnable() { public void run() {
             try {
-                JSONObject o = new JSONObject();
-                for (String[] sv : AdVpn.SERVERS) o.put(sv[0], ping(sv[2]));
+                final JSONObject o = new JSONObject();
+                List<Thread> ts = new ArrayList<>();
+                for (final String[] sv : AdVpn.SERVERS) {
+                    Thread t = new Thread(new Runnable() { public void run() {
+                        int ms = ping(sv[2]);
+                        synchronized (o) { try { o.put(sv[0], ms); } catch (Exception ignored) {} }
+                    }});
+                    ts.add(t); t.start();
+                }
+                for (Thread t : ts) t.join(12000);
                 a.js("window.__speed&&__speed(" + o.toString() + ")");
-            } catch (Exception ignored) {}
+            } catch (Exception e) { a.js("window.__speed&&__speed({})"); }
         }}).start();
     }
 
