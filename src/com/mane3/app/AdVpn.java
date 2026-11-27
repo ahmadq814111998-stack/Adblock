@@ -261,7 +261,7 @@ public class AdVpn extends VpnService implements Runnable {
             b.addDnsServer(FAKE_DNS);
             b.addRoute(FAKE_DNS, 32);
             b.setBlocking(true);
-            try { b.addDisallowedApplication(getPackageName()); } catch (Exception ignored) {}
+            // our own browser goes through the tunnel too, so blocked ads really fail (forwarding sockets are protect()ed)
             for (String pkg : prefs.getStringSet("excluded", new HashSet<String>())) {
                 try { b.addDisallowedApplication(pkg); } catch (Exception ignored) {}
             }

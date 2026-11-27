@@ -722,6 +722,7 @@ public class BrowserActivity extends Activity {
                 } catch (Exception e) { }
             }});
         } else seekB.row.setVisibility(View.GONE);
+        if (bShield != null) updateShield();   // live count while the page keeps loading ads
         h.postDelayed(this, 500);
     }};
     LinearLayout popbar;
@@ -1058,7 +1059,12 @@ public class BrowserActivity extends Activity {
                     int c = Rules.check(host);
                     if (c == Rules.BLOCK_LIST || c == Rules.BLOCK_CUSTOM) {
                         blockedHere++;
-                        return stub(u, r);
+                        String pth = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
+                        boolean critical = pth.endsWith("adsbygoogle.js") || pth.contains("show_ads") || pth.contains("gpt.js") || pth.contains("pubads_impl");
+                        // With the VPN on, let the request go out: our DNS answers 0.0.0.0 so it truly fails (like a real blocker).
+                        // Only scripts that sites break without get a harmless stand-in; with the VPN off, everything gets one.
+                        if (critical || !AdVpn.running || AdVpn.pausedFor != null) return stub(u, r);
+                        return null;
                     }
                 }
                 if (!r.isForMainFrame() && "GET".equals(r.getMethod()) && host != null) {
