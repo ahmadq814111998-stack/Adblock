@@ -310,6 +310,7 @@
     if (cmd === 'zap') { zapOn = !!a; return 1; }
     if (cmd === 'reader') return TOP ? reader() : 0;
     if (cmd === 'nextep') return TOP ? offerNext(false) : 0;
+    if (cmd === 'pip') { window.__mpip = !!a; if (!a) window.__mbig = null; return 1; }
     if (cmd === 'play') { var pv = mainVideo(); if (pv) { try { pv.play(); } catch (e) {} return 1; } return 0; }
     if (cmd === 'gest') { window.__gest = !!a; return 1; }
     if (cmd === 'dtap') { window.__dtap = !!a; return 1; }
@@ -374,7 +375,7 @@
   // ---------- video time info (for the app's seek bar) ----------
   function info() {
     var v = mainVideo();
-    if (v && isFinite(v.duration) && v.duration > 1 && !isAd()) return { t: v.currentTime, d: v.duration, p: v.paused ? 1 : 0, s: /^https?:/.test(v.currentSrc || '') ? v.currentSrc : '' };
+    if (v && isFinite(v.duration) && v.duration > 1 && !isAd()) return { t: v.currentTime, d: v.duration, p: v.paused ? 1 : 0, s: /^https?:/.test(v.currentSrc || '') ? v.currentSrc : '', w: v.videoWidth || 0, h: v.videoHeight || 0 };
     return null;
   }
   window.__vinfo = function () {
@@ -766,7 +767,7 @@
       if (u && u.indexOf('http') == 0 && s.indexOf(u) < 0) s.push(u);
     });
     if (s.length) try { B.media(JSON.stringify(s), document.title || ''); } catch (e) {}
-    if (TOP) {
+    if (TOP && !window.__mpip) {
       var big = false, W = innerWidth, H = innerHeight;
       if (!document.fullscreenElement && !document.webkitFullscreenElement) {
         document.querySelectorAll('video, iframe').forEach(function (el) {
@@ -791,7 +792,8 @@
     skipAds(false);
     if (!TOP) { var vi = info(); if (vi) try { parent.postMessage({ __mi: vi }, '*'); } catch (e) {} }
     var now = Date.now();
-    if ((dirty && now - lastHeavy > 1200) || now - lastHeavy > 6000) {
+    var tiny = !!window.__mpip;   // picture-in-picture: skip the heavy clean-up scans
+    if (!tiny && ((dirty && now - lastHeavy > 1200) || now - lastHeavy > 6000)) {
       dirty = false; lastHeavy = now;
       try { lures(); } catch (e) {}
       try { frameLures(); } catch (e) {}

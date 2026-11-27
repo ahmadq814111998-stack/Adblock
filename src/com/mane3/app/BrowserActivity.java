@@ -590,6 +590,18 @@ public class BrowserActivity extends Activity {
     volatile String lastSrc = "";
     volatile double lastT = 0;
     boolean nativePip = false;
+    volatile int lastW = 0, lastH = 0;
+
+    boolean inPip() { return Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode(); }
+
+    /** Window shape follows the video: tall for Shorts / Reels, wide for films. */
+    android.util.Rational pipRatio() {
+        if (lastW > 0 && lastH > 0) {
+            float r = Math.max(0.42f, Math.min(2.39f, lastW / (float) lastH));
+            return new android.util.Rational((int) (r * 1000), 1000);
+        }
+        return new android.util.Rational(16, 9);
+    }
 
     String pipSrc() {
         if (lastSrc != null && lastSrc.startsWith("http")) return lastSrc;
@@ -659,7 +671,8 @@ public class BrowserActivity extends Activity {
                 pipZoomed = zoomMode == 0 && customView == null;
                 if (pipZoomed) web.evaluateJavascript("window.__cmd&&__cmd('zoom',1)", null);
             }
-            enterPictureInPictureMode(new android.app.PictureInPictureParams.Builder().setAspectRatio(new android.util.Rational(16, 9)).build());
+            web.evaluateJavascript("window.__cmd&&__cmd('pip',1)", null);
+            enterPictureInPictureMode(new android.app.PictureInPictureParams.Builder().setAspectRatio(pipRatio()).build());
         } catch (Exception e) { stopNative(true); toast("ما قدرت أفتح النافذة الصغيرة"); }
     }
 
@@ -673,6 +686,7 @@ public class BrowserActivity extends Activity {
     public void onPictureInPictureModeChanged(boolean inPip, android.content.res.Configuration cfg) {
         super.onPictureInPictureModeChanged(inPip, cfg);
         if (inPip) return;
+        web.evaluateJavascript("window.__cmd&&__cmd('pip',0)", null);
         boolean wasNative = nativePip;
         stopNative(true);
         if (wasNative) {
@@ -799,6 +813,7 @@ public class BrowserActivity extends Activity {
                     double t = o.getDouble("t"), d = o.getDouble("d");
                     playing = o.optInt("p", 1) == 0;
                     lastT = t; lastSrc = o.optString("s", "");
+                    lastW = o.optInt("w", 0); lastH = o.optInt("h", 0);
                     if (sleepAtEnd && d > 30 && t >= d - 2) sleepNow();
                     resume(t, d);
                     seekA.set(t, d); seekB.set(t, d);
@@ -1048,6 +1063,7 @@ public class BrowserActivity extends Activity {
             @JavascriptInterface public void orient(final boolean big) {
                 if (wv != web) return;
                 runOnUiThread(new Runnable() { public void run() {
+                    if (inPip()) return;          // the video fills the small window: that's not "fullscreen", never rotate there (caused the freeze)
                     pseudoFull = big;
                     if (cinema()) return;
                     setRequestedOrientation(big ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
