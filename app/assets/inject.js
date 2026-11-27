@@ -36,6 +36,14 @@
   var css = STEALTH
     ? REAL + "{position:absolute!important;left:-10000px!important;top:-10000px!important;pointer-events:none!important}"
     : REAL + "," + GENERIC + "{display:none!important}";
+  // cookie banners and "open in app" nags
+  css += "#onetrust-banner-sdk,#onetrust-consent-sdk,#CybotCookiebotDialog,.qc-cmp2-container,#qc-cmp2-container,.cc-window,.cc-banner,#cookie-law-info-bar,"
+    + "#cookieConsent,#cookie-consent,.cookie-consent,.cookie-banner,#cookie-banner,.cookie-notice,#cookie-notice,[aria-label='cookieconsent'],.fc-consent-root,"
+    + "#didomi-host,.truste_box_overlay,#truste-consent-track,.osano-cm-window,#usercentrics-root,.smartbanner,#smartbanner,.smart-banner,"
+    + ".app-banner,.open-in-app,.XPromoPopup,shreddit-async-loader[bundlename='app_selector'],xpromo-app-selector,.ytm-promoted-sparkles-web-renderer"
+    + "{display:none!important}";
+  if (window.__dark && TOP) css += "html{filter:invert(.92) hue-rotate(180deg)!important;background:#fff!important}"
+    + "img,video,picture,canvas,iframe,svg image,[style*='background-image']{filter:invert(1) hue-rotate(180deg)!important}";
   try {
     var st = document.createElement('style');
     st.textContent = css;
@@ -174,6 +182,9 @@
     if (cmd === 'skip') return window.__skipAd();
     if (cmd === 'zoom') return zoomLocal(a);
     if (cmd === 'zap') { zapOn = !!a; return 1; }
+    if (cmd === 'cine') { window.__cine = !!a; return 1; }
+    if (cmd === 'pause') { document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); return 1; }
+    if (cmd === 'intro') { window.__intro = a; return 1; }
     if (cmd === 'hush') { document.querySelectorAll('video,audio').forEach(function (v) { try { v.pause(); v.muted = true; } catch (e) {} }); return 1; }
     return 0;
   }
@@ -200,6 +211,13 @@
       if (v.__mh) return;
       v.__mh = 1;
       v.addEventListener('play', function () { if (window.__mrate != 1 && !isAd()) v.playbackRate = window.__mrate; });
+      v.addEventListener('playing', function () {
+        var it = +window.__intro || 0;
+        if (it > 0 && !v.__introDone && !isAd() && v.currentTime < 3 && isFinite(v.duration) && v.duration > it + 60) {
+          v.__introDone = 1; v.currentTime = it;
+          try { bubble('⏭️ تخطّيت المقدمة'); bubT = setTimeout(function () { if (bub) bub.style.display = 'none'; }, 1200); } catch (e) {}
+        }
+      });
     });
   }
 
@@ -242,11 +260,22 @@
     if (t.clientY < r.top || t.clientY > r.bottom - 40 || t.clientX < r.left || t.clientX > r.right) return;
     sx = t.clientX; sy = t.clientY; st = v.currentTime; sw = false;
   }, { passive: true, capture: true });
+  var vw = false, vside = '', vy = 0;
+  function cine() { return !!(window.__cine || document.fullscreenElement || document.webkitFullscreenElement); }
   document.addEventListener('touchmove', function (e) {
     if (sx === null) return;
     var t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (vw) {
+      var dd = (vy - t.clientY) / innerHeight;
+      if (Math.abs(dd) > 0.015) {
+        vy = t.clientY;
+        try { bubble(vside === 'b' ? B.bright(dd * 1.6) : B.vol(dd * 1.6)); } catch (x) {}
+      }
+      return;
+    }
     if (!sw) {
       if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.5) sw = true;
+      else if (cine() && Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx) * 1.5) { vw = true; vside = sx < innerWidth / 2 ? 'b' : 'v'; vy = t.clientY; return; }
       else { if (Math.abs(dy) > 30) sx = null; return; }
     }
     var v = mainVideo(); if (!v) return;
@@ -258,6 +287,7 @@
   var lastTap = 0, lastX = 0, tapX = 0, tapY = 0;
   document.addEventListener('touchstart', function (e) { if (e.touches.length === 1) { tapX = e.touches[0].clientX; tapY = e.touches[0].clientY; } }, { passive: true, capture: true });
   document.addEventListener('touchend', function (e) {
+    if (vw) { vw = false; sx = null; bubT = setTimeout(function () { if (bub) bub.style.display = 'none'; }, 700); return; }
     if (sx !== null && !sw) {
       var v = mainVideo(), now = Date.now();
       if (v && now - lastTap < 320 && Math.abs(tapX - lastX) < 60) {

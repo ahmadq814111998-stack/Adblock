@@ -1,0 +1,6 @@
+<html><head><meta charset="utf-8"></head><body style="margin:0">
+<div id="onetrust-banner-sdk" style="position:fixed;bottom:0">We use cookies</div>
+<div class="smartbanner">Open in app</div>
+<video id="v" style="width:100vw;height:100vh" muted></video>
+<script>fetch('long.mp4').then(r=>r.blob()).then(b=>{document.getElementById('v').src=URL.createObjectURL(b)})</script>
+</body></html>

@@ -53,4 +53,5 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 5.4 browser: dark mode (CSS invert, `__dark`), find bar, translate (Google proxy), print/PDF, incognito tabs (no history/persist), sleep timer (minutes or end of video), skip intro per host (`intro:<host>`, JS on `playing`), vertical swipe in cinema = brightness (left) / volume (right) via `MB.bright/vol` (`__cine` flag), speed saved per host (`rate:<host>`), cookie-banner / open-in-app CSS.
 - 5.3 real tabs: each tab keeps its own WebView + back history (`activate()`, `createWeb()`, `setupWeb(wv)`).

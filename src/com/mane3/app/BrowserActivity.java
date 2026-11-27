@@ -80,16 +80,151 @@ public class BrowserActivity extends Activity {
     boolean bgOn() { return getSharedPreferences("b", 0).getBoolean("bg", true); }
     boolean pipOn() { return getSharedPreferences("b", 0).getBoolean("pip", true); }
 
-    String pre(String host) { return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn() + ";"; }
+    boolean darkOn() { return getSharedPreferences("b", 0).getBoolean("dark", false); }
+    int introFor(String host) { return getSharedPreferences("b", 0).getInt("intro:" + host, 0); }
+
+    String pre(String host) {
+        return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn()
+            + ";window.__dark=" + darkOn() + ";window.__intro=" + introFor(pageHost) + ";window.__cine=" + (zoomMode > 0 || customView != null) + ";";
+    }
+
+    // ---------- brightness / volume (vertical swipe on the video) ----------
+    float bright = -1f;
+    double volAcc = 0;
+
+    String doBright(final float d) {
+        if (bright < 0) {
+            try { bright = android.provider.Settings.System.getInt(getContentResolver(), android.provider.Settings.System.SCREEN_BRIGHTNESS) / 255f; }
+            catch (Exception e) { bright = 0.5f; }
+        }
+        bright = Math.max(0.01f, Math.min(1f, bright + d));
+        final float b = bright;
+        runOnUiThread(new Runnable() { public void run() {
+            WindowManager.LayoutParams lp = getWindow().getAttributes(); lp.screenBrightness = b; getWindow().setAttributes(lp); } });
+        return "☀️ " + Math.round(b * 100) + "%";
+    }
+
+    String doVol(float d) {
+        android.media.AudioManager am = (android.media.AudioManager) getSystemService(AUDIO_SERVICE);
+        int max = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+        int curV = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+        volAcc += d * max;
+        int step = (int) volAcc;
+        if (step != 0) {
+            volAcc -= step;
+            curV = Math.max(0, Math.min(max, curV + step));
+            am.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, curV, 0);
+        }
+        return (curV == 0 ? "🔇 " : "🔊 ") + curV + "/" + max;
+    }
+
+    // ---------- find in page ----------
+    LinearLayout findBar; EditText findIn; TextView findCount;
+
+    void buildFindBar(LinearLayout main) {
+        findBar = new LinearLayout(this);
+        findBar.setGravity(Gravity.CENTER_VERTICAL);
+        findBar.setBackgroundColor(Color.parseColor("#13233F"));
+        findBar.setPadding(px(8), px(4), px(4), px(4));
+        findBar.setVisibility(View.GONE);
+        findIn = new EditText(this);
+        findIn.setSingleLine(true); findIn.setTextColor(Color.WHITE); findIn.setHint("ابحث في الصفحة"); findIn.setHintTextColor(Color.parseColor("#64748B"));
+        findIn.setTextSize(15);
+        findIn.addTextChangedListener(new android.text.TextWatcher() {
+            public void beforeTextChanged(CharSequence a, int b, int c, int d) {}
+            public void onTextChanged(CharSequence a, int b, int c, int d) { web.findAllAsync(a.toString()); }
+            public void afterTextChanged(android.text.Editable e) {}
+        });
+        findBar.addView(findIn, new LinearLayout.LayoutParams(0, -2, 1));
+        findCount = new TextView(this); findCount.setTextColor(Color.parseColor("#94A3B8")); findCount.setTextSize(13); findCount.setPadding(px(6), 0, px(6), 0);
+        findBar.addView(findCount);
+        findBar.addView(btn("▲", new View.OnClickListener() { public void onClick(View v) { web.findNext(false); } }));
+        findBar.addView(btn("▼", new View.OnClickListener() { public void onClick(View v) { web.findNext(true); } }));
+        findBar.addView(btn("✕", new View.OnClickListener() { public void onClick(View v) { closeFind(); } }));
+        main.addView(findBar);
+    }
+
+    void openFind() {
+        findBar.setVisibility(View.VISIBLE);
+        findIn.requestFocus();
+        ((InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(findIn, 0);
+    }
+
+    void closeFind() {
+        web.clearMatches(); findIn.setText(""); findCount.setText(""); findBar.setVisibility(View.GONE);
+        ((InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(findIn.getWindowToken(), 0);
+    }
+
+    // ---------- sleep timer ----------
+    boolean sleepAtEnd = false;
+    long sleepAt = 0;
+    final Runnable sleepRun = new Runnable() { public void run() { sleepNow(); } };
+
+    void sleepNow() {
+        sleepAt = 0; sleepAtEnd = false;
+        for (Tab t : tabs) if (t.view != null) t.view.evaluateJavascript("window.__cmd&&__cmd('pause',0)", null);
+        toast("⏲️ وقّفت الفيديو • تصبح على خير 🌙");
+    }
+
+    void sleepDialog() {
+        final int[] mins = {15, 30, 45, 60, 90, 0, -1};
+        String state = sleepAtEnd ? " (لين نهاية الفيديو)" : sleepAt > 0 ? " (باقي " + Math.max(1, (sleepAt - System.currentTimeMillis()) / 60000) + " دقيقة)" : "";
+        String[] items = {"15 دقيقة", "30 دقيقة", "45 دقيقة", "ساعة", "ساعة ونص", "🎬 لين يخلص الفيديو", "❌ ألغِ المؤقت"};
+        new AlertDialog.Builder(this).setTitle("⏲️ مؤقت النوم" + state).setItems(items, new android.content.DialogInterface.OnClickListener() {
+            public void onClick(android.content.DialogInterface d, int w) {
+                h.removeCallbacks(sleepRun); sleepAtEnd = false; sleepAt = 0;
+                if (mins[w] > 0) { sleepAt = System.currentTimeMillis() + mins[w] * 60000L; h.postDelayed(sleepRun, mins[w] * 60000L); toast("⏲️ بيوقف الفيديو بعد " + mins[w] + " دقيقة"); }
+                else if (mins[w] == 0) { sleepAtEnd = true; toast("⏲️ بيوقف لما يخلص الفيديو"); }
+                else toast("انلغى المؤقت");
+            }
+        }).show();
+    }
+
+    // ---------- skip intro ----------
+    void introDialog() {
+        if (pageHost.isEmpty()) { toast("افتح موقع أول"); return; }
+        final int curI = introFor(pageHost);
+        final int[] secs = {-1, 30, 60, 85, 90, 120, 0};
+        String[] items = {"⏱ من وين واقف الحين (حط الفيديو عند نهاية المقدمة)", "30 ثانية", "دقيقة", "85 ثانية", "دقيقة ونص", "دقيقتين", "❌ إيقاف"};
+        new AlertDialog.Builder(this).setTitle("⏭️ تخطّي المقدمة في " + pageHost + (curI > 0 ? " (" + tfmt(curI) + ")" : ""))
+            .setItems(items, new android.content.DialogInterface.OnClickListener() { public void onClick(android.content.DialogInterface d, int w) {
+                if (secs[w] == -1) {
+                    web.evaluateJavascript("window.__vinfo?__vinfo():''", new ValueCallback<String>() { public void onReceiveValue(String v) {
+                        try {
+                            org.json.JSONObject o = new org.json.JSONObject(new JSONArray("[" + v + "]").getString(0));
+                            setIntro((int) o.getDouble("t"));
+                        } catch (Exception e) { toast("شغّل الفيديو ووقّفه عند نهاية المقدمة"); }
+                    }});
+                } else setIntro(secs[w]);
+            }}).show();
+    }
+
+    void setIntro(int sec) {
+        getSharedPreferences("b", 0).edit().putInt("intro:" + pageHost, sec).apply();
+        web.evaluateJavascript("window.__cmd&&__cmd('intro'," + sec + ")", null);
+        toast(sec > 0 ? "⏭️ بيتخطّى أول " + tfmt(sec) + " في كل حلقة من " + pageHost : "انطفى تخطّي المقدمة");
+    }
 
     // ---------- tabs ----------
-    static class Tab { String url, title; WebView view; long used; Tab(String u, String t) { url = u; title = t; } }
+    static class Tab { String url, title; WebView view; long used; boolean incognito; Tab(String u, String t) { url = u; title = t; } }
+
+    boolean incognitoNow() { return !tabs.isEmpty() && curTab < tabs.size() && tabs.get(curTab).incognito; }
+
+    void newIncognito() {
+        saveTab();
+        Tab t = new Tab(HOME, "");
+        t.incognito = true;
+        tabs.add(t);
+        activate(tabs.size() - 1);
+        toast("🕶️ تبويب خفي • ما ينحفظ في السجل");
+    }
     FrameLayout webBox;
     static final int MAX_LIVE = 5;
 
     /** Show tab i (its own WebView, back history kept). Creates the view if it was never opened or got freed. */
     void activate(int i) {
         if (zoomMode > 0 || customView != null) exitFull();
+        if (findBar != null && findBar.getVisibility() == View.VISIBLE) closeFind();
         Tab t = tabs.get(i);
         for (Tab o : tabs) if (o.view != null && o != t) { o.view.setVisibility(View.GONE); o.view.onPause(); }
         boolean fresh = t.view == null;
@@ -141,8 +276,10 @@ public class BrowserActivity extends Activity {
         try {
             saveTab();
             JSONArray a = new JSONArray();
-            for (Tab t : tabs) a.put(new JSONArray().put(t.url == null ? HOME : t.url).put(t.title == null ? "" : t.title));
-            getSharedPreferences("b", 0).edit().putString("tabs", a.toString()).putInt("cur", curTab).apply();
+            for (Tab t : tabs) if (!t.incognito) a.put(new JSONArray().put(t.url == null ? HOME : t.url).put(t.title == null ? "" : t.title));
+            int ci = 0, k = 0;
+            for (int i = 0; i < tabs.size(); i++) { if (tabs.get(i).incognito) continue; if (i == curTab) ci = k; k++; }
+            getSharedPreferences("b", 0).edit().putString("tabs", a.toString()).putInt("cur", ci).apply();
         } catch (Exception ignored) {}
     }
 
@@ -193,17 +330,19 @@ public class BrowserActivity extends Activity {
             Tab t = tabs.get(i);
             String name = t.title != null && !t.title.isEmpty() ? t.title : (t.url == null || t.url.startsWith("file:") ? "الصفحة الرئيسية" : t.url);
             if (name.length() > 45) name = name.substring(0, 45) + "…";
-            items.add((i == curTab ? "▶ " : "    ") + name);
+            items.add((i == curTab ? "▶ " : "    ") + (t.incognito ? "🕶️ " : "") + name);
         }
         final int n = tabs.size();
         items.add("➕ تبويب جديد");
+        items.add("🕶️ تبويب خفي جديد");
         items.add("✕ سكّر هالتبويب");
         if (n > 1) items.add("🧹 سكّر كل التبويبات");
         new AlertDialog.Builder(this).setTitle("⧉ التبويبات (" + n + ")").setItems(items.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
             public void onClick(android.content.DialogInterface d, int w) {
                 if (w < n) switchTab(w);
                 else if (w == n) newTab(HOME);
-                else if (w == n + 1) closeTab(curTab);
+                else if (w == n + 1) newIncognito();
+                else if (w == n + 2) closeTab(curTab);
                 else closeAll();
             }
         }).show();
@@ -250,6 +389,7 @@ public class BrowserActivity extends Activity {
 
     void addHistory(String u, String t) {
         if (u == null || !u.startsWith("http")) return;
+        for (Tab x : tabs) if (x.incognito && x.view != null && u.equals(x.view.getUrl())) return;
         try {
             JSONArray a = jarr("hist"), out = new JSONArray();
             out.put(new org.json.JSONObject().put("u", u).put("t", t == null || t.isEmpty() ? u : t).put("ts", System.currentTimeMillis()));
@@ -403,7 +543,7 @@ public class BrowserActivity extends Activity {
         if (!key.equals(resumeChecked)) {
             resumeChecked = key;
             float saved = sp.getFloat(key, 0);
-            if (saved > 30 && saved < d - 60 && t < 10) {
+            if (saved > 30 && saved < d - 60 && t < introFor(pageHost) + 10) {
                 web.evaluateJavascript("window.__cmd&&__cmd('seekto'," + (int) saved + ")", null);
                 toast("▶ كمّلت من " + tfmt(saved));
                 return;
@@ -428,6 +568,7 @@ public class BrowserActivity extends Activity {
                     org.json.JSONObject o = new org.json.JSONObject(js);
                     double t = o.getDouble("t"), d = o.getDouble("d");
                     playing = o.optInt("p", 1) == 0;
+                    if (sleepAtEnd && d > 30 && t >= d - 2) sleepNow();
                     resume(t, d);
                     seekA.set(t, d); seekB.set(t, d);
                     seekA.row.setVisibility(View.VISIBLE);
@@ -524,6 +665,7 @@ public class BrowserActivity extends Activity {
         top.addView(bTabs);
         top.addView(btn("⟳", new View.OnClickListener() { public void onClick(View v) { web.reload(); } }));
         main.addView(top);
+        buildFindBar(main);
 
         prog = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
         prog.setMax(100);
@@ -668,6 +810,8 @@ public class BrowserActivity extends Activity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true);
         wv.addJavascriptInterface(new Object() {
+            @JavascriptInterface public String bright(float d) { return doBright(d); }
+            @JavascriptInterface public String vol(float d) { return doVol(d); }
             @JavascriptInterface public String home() {
                 String cu = curUrl;
                 return cu != null && cu.startsWith("file:///android_asset/") ? homeJson() : "{}";
@@ -716,6 +860,7 @@ public class BrowserActivity extends Activity {
                 blockedHere = 0; skippedHere = 0; popsBlocked = 0;
                 synchronized (recentBlocked) { recentBlocked.clear(); }
                 pageHost = baseHost(Uri.parse(u).getHost());
+                loadRate();
                 curUrl = u;
                 vpanel.setVisibility(View.GONE);
                 updateShield();
@@ -816,6 +961,7 @@ public class BrowserActivity extends Activity {
                 immersive(true);
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                 showOverlay();
+                web.evaluateJavascript("window.__cmd&&__cmd('cine',1)", null);
             }
             @Override public void onHideCustomView() {
                 if (customView == null) return;
@@ -824,11 +970,16 @@ public class BrowserActivity extends Activity {
                 customView = null;
                 if (customCb != null) customCb.onCustomViewHidden();
                 customCb = null;
-                if (zoomMode == 0) { immersive(false); overlay.setVisibility(View.GONE); }
+                if (zoomMode == 0) { immersive(false); overlay.setVisibility(View.GONE); web.evaluateJavascript("window.__cmd&&__cmd('cine',0)", null); }
                 setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
             }
         });
 
+        wv.setFindListener(new WebView.FindListener() {
+            public void onFindResultReceived(int active, int num, boolean done) {
+                if (wv == web && findCount != null) findCount.setText(num > 0 ? (active + 1) + "/" + num : (findIn.length() > 0 ? "0" : ""));
+            }
+        });
         wv.setDownloadListener(new DownloadListener() {
             public void onDownloadStart(String u, String ua, String cd, String mime, long len) {
                 String l = (u + " " + mime + " " + cd).toLowerCase(Locale.ROOT);
@@ -924,11 +1075,19 @@ public class BrowserActivity extends Activity {
 
     void setRate(float r) {
         rate = r;
+        if (!pageHost.isEmpty()) getSharedPreferences("b", 0).edit().putFloat("rate:" + pageHost, r).apply();
         String t = "⚡" + fmt(r) + "x";
         bSpeed.setText(t); oSpeed.setText(t);
         bSpeed.setTextColor(Color.parseColor(r == 1f ? "#E6EDF7" : "#FBBF24"));
         applyRate();
         toast("السرعة " + fmt(r) + "x");
+    }
+
+    void loadRate() {
+        rate = getSharedPreferences("b", 0).getFloat("rate:" + pageHost, 1f);
+        String t = "⚡" + fmt(rate) + "x";
+        bSpeed.setText(t); oSpeed.setText(t);
+        bSpeed.setTextColor(Color.parseColor(rate == 1f ? "#E6EDF7" : "#FBBF24"));
     }
 
     void applyRate() {
@@ -963,6 +1122,7 @@ public class BrowserActivity extends Activity {
                     immersive(true);
                     setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
                     showOverlay();
+                    web.evaluateJavascript("window.__cmd&&__cmd('cine',1)", null);
                     if (!was) toast("🎬 اضغط 🔍 تكبّر • ✕ تطلع");
                     else toast(ZOOMS[m].replaceAll("\\(.*\\)", "").trim());
                 }
@@ -970,6 +1130,7 @@ public class BrowserActivity extends Activity {
         } else {
             zoomMode = 0;
             web.evaluateJavascript("window.__cmd&&__cmd('zoom',0)", null);
+            if (customView == null) web.evaluateJavascript("window.__cmd&&__cmd('cine',0)", null);
             if (customView == null) {
                 top.setVisibility(View.VISIBLE); bottom.setVisibility(View.VISIBLE);
                 web.evaluateJavascript("!!(document.querySelector('video')||window.__fv)", new ValueCallback<String>() { public void onReceiveValue(String v) { vpanel.setVisibility("true".equals(v) ? View.VISIBLE : View.GONE); } });
@@ -1144,6 +1305,13 @@ public class BrowserActivity extends Activity {
             "⭐ المفضلة",
             "🕘 السجل",
             "⧉ التبويبات",
+            "🕶️ تبويب خفي",
+            "🔍 ابحث في الصفحة",
+            "🌐 ترجم الصفحة للعربي",
+            "🌙 الوضع الليلي للمواقع: " + (darkOn() ? "شغّال ✅" : "طافي"),
+            "⏲️ مؤقت النوم" + (sleepAtEnd || sleepAt > 0 ? " ✅" : ""),
+            "⏭️ تخطّي المقدمة لهالموقع" + (introFor(pageHost) > 0 ? " (" + tfmt(introFor(pageHost)) + ")" : ""),
+            "🖨️ احفظ الصفحة PDF",
             "🖼️ نافذة صغيرة (الفيديو فوق البرامج)",
             "🎧 الصوت بالخلفية: " + (bgOn() ? "شغّال ✅" : "طافي"),
             "🖼️ نافذة صغيرة تلقائية لما تطلع: " + (pipOn() ? "شغّالة ✅" : "طافية"),
@@ -1159,6 +1327,20 @@ public class BrowserActivity extends Activity {
             else if (it.startsWith("⭐ المفضلة")) bookmarksDialog(false);
             else if (it.startsWith("🕘")) historyDialog();
             else if (it.startsWith("⧉")) tabsDialog();
+            else if (it.startsWith("🕶️")) newIncognito();
+            else if (it.startsWith("🔍")) openFind();
+            else if (it.startsWith("🌐 ترجم")) { if (cur.startsWith("http")) web.loadUrl("https://translate.google.com/translate?sl=auto&tl=ar&u=" + Uri.encode(cur)); else toast("افتح موقع أول"); }
+            else if (it.startsWith("🌙")) { bp.edit().putBoolean("dark", !darkOn()).apply(); toast(darkOn() ? "🌙 الوضع الليلي شغّال" : "انطفى الوضع الليلي"); for (Tab t : tabs) if (t.view != null) t.view.reload(); }
+            else if (it.startsWith("⏲️")) sleepDialog();
+            else if (it.startsWith("⏭️")) introDialog();
+            else if (it.startsWith("🖨️")) {
+                try {
+                    android.print.PrintManager pm = (android.print.PrintManager) getSystemService(Context.PRINT_SERVICE);
+                    String jn = web.getTitle() == null ? "Mane3" : web.getTitle();
+                    pm.print(jn, web.createPrintDocumentAdapter(jn), null);
+                    toast("اختار «حفظ كـ PDF» فوق");
+                } catch (Exception e) { toast("ما قدرت"); }
+            }
             else if (it.startsWith("🖼️ نافذة صغيرة (")) { if (playing || customView != null || zoomMode > 0) enterPip(); else toast("شغّل الفيديو أول"); }
             else if (it.startsWith("🎧")) { bp.edit().putBoolean("bg", !bgOn()).apply(); toast(bgOn() ? "🎧 الصوت يكمّل لما تطلع" : "الصوت يوقف لما تطلع"); web.reload(); }
             else if (it.startsWith("🖼️ نافذة صغيرة تلقائية")) { bp.edit().putBoolean("pip", !pipOn()).apply(); toast(pipOn() ? "🖼️ إذا طلعت والفيديو شغّال يصير نافذة صغيرة" : "انطفت النافذة التلقائية"); }
@@ -1517,6 +1699,7 @@ public class BrowserActivity extends Activity {
 
     @Override
     public void onBackPressed() {
+        if (findBar != null && findBar.getVisibility() == View.VISIBLE) { closeFind(); return; }
         if (customView != null || zoomMode > 0) { exitFull(); return; }
         if (web.canGoBack()) { web.goBack(); return; }
         super.onBackPressed();
