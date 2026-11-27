@@ -1531,7 +1531,7 @@ public class BrowserActivity extends Activity {
             "🙈 فلتر المحتوى (الرقص وغيره)",
             "🔄 تحديث", "📤 شارك الرابط", "🔗 انسخ الرابط",
             desktop ? "📱 وضع الجوال" : "🖥️ وضع الكمبيوتر",
-            "🔠 حجم الخط", "📂 التحميلات", "🌍 افتح في متصفح ثاني", "🛡️ المانع والإعدادات", "🧹 امسح الكوكيز والكاش"));
+            "🔠 حجم الخط", "📂 التحميلات", "🌍 افتح في متصفح ثاني", "🛡️ المانع والإعدادات", "📤 شارك مانع مع غيرك", "🧹 امسح الكوكيز والكاش"));
         new AlertDialog.Builder(BrowserActivity.this).setItems(items.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() { public void onClick(android.content.DialogInterface d, int w) {
             String it = items.get(w);
             android.content.SharedPreferences bp = getSharedPreferences("b", 0);
@@ -1585,6 +1585,8 @@ public class BrowserActivity extends Activity {
             else if (it.startsWith("🔠")) textSizeDialog();
             else if (it.startsWith("📂")) openDownloads();
             else if (it.startsWith("🌍")) { try { startActivity(Intent.createChooser(new Intent(Intent.ACTION_VIEW, Uri.parse(cur)), "افتح في…")); } catch (Exception ignored) {} }
+            else if (it.startsWith("📤 شارك مانع")) startActivity(Intent.createChooser(new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT,
+                "🛡️ جرّب «مانع»: يمنع الدعايات من الألعاب والبرامج والمواقع، وفيه متصفح بدون دعايات.\n\n📥 حمّله من هني:\nhttps://github.com/ahmadq814111998-stack/adblock/raw/main/updates/Mane3.apk"), "شارك مانع"));
             else if (it.startsWith("🛡️ المانع")) startActivity(new Intent(BrowserActivity.this, MainActivity.class));
             else if (it.startsWith("🧹")) {
                 web.clearCache(true);

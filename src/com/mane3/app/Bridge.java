@@ -300,6 +300,43 @@ public class Bridge {
         }}).start();
     }
 
+    // ---------- share the app ----------
+    static final String DL = "https://github.com/ahmadq814111998-stack/adblock/raw/main/updates/Mane3.apk";
+
+    @JavascriptInterface public void shareLink() {
+        String t = "🛡️ جرّب «مانع»: يمنع الدعايات من الألعاب والبرامج والمواقع، وفيه متصفح بدون دعايات مع تحميل وتسريع الفيديو.\n\n"
+            + "📥 حمّله من هني:\n" + DL + "\n\n"
+            + "بعد التحميل افتح الملف ووافق على «تثبيت من مصادر غير معروفة».";
+        Intent i = new Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t);
+        a.startActivity(Intent.createChooser(i, "شارك مانع"));
+    }
+
+    /** Copies our own APK to Downloads/Mane3 and shares the file itself. */
+    @JavascriptInterface public void shareFile() {
+        new Thread(new Runnable() { public void run() {
+            try {
+                java.io.File src = new java.io.File(c.getApplicationInfo().sourceDir);
+                android.net.Uri uri;
+                if (android.os.Build.VERSION.SDK_INT >= 29) {
+                    android.content.ContentValues v = new android.content.ContentValues();
+                    v.put("_display_name", "Mane3-" + Updater.myName(c) + ".apk");
+                    v.put("mime_type", "application/vnd.android.package-archive");
+                    v.put("relative_path", "Download/Mane3");
+                    uri = c.getContentResolver().insert(android.net.Uri.parse("content://media/external/downloads"), v);
+                    try (java.io.InputStream in = new java.io.FileInputStream(src); java.io.OutputStream out = c.getContentResolver().openOutputStream(uri)) {
+                        byte[] buf = new byte[65536]; int n; while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+                    }
+                } else { a.runOnUiThread(new Runnable() { public void run() { shareLink(); } }); return; }
+                final android.net.Uri u = uri;
+                a.runOnUiThread(new Runnable() { public void run() {
+                    Intent i = new Intent(Intent.ACTION_SEND).setType("application/vnd.android.package-archive")
+                        .putExtra(Intent.EXTRA_STREAM, u).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    a.startActivity(Intent.createChooser(i, "أرسل ملف مانع"));
+                }});
+            } catch (Exception e) { a.runOnUiThread(new Runnable() { public void run() { shareLink(); } }); }
+        }}).start();
+    }
+
     // ---------- stats ----------
     @JavascriptInterface public String stats() { return Stats.json(c); }
     @JavascriptInterface public void resetStats() { Stats.reset(c); }

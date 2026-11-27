@@ -85,6 +85,7 @@ nav a.on{color:var(--acc)}
     <div id="tstR" style="margin-top:8px"></div>
   </div>
   <button class="btn s" onclick="M.vpnSettings()">⚙️ تشغيل دائم (VPN دائم التشغيل)</button>
+  <button class="btn s" onclick="M.shareLink()">📤 شارك مانع مع غيرك</button>
   <div class="card note">
     • يمنع الدعايات والمتتبّعات والمواقع الضارة في الألعاب والبرامج والمتصفح، على الواي فاي والبيانات.<br>
     • عشان يشتغل لحاله بعد الريستارت: «تشغيل دائم»، اختار «مانع»، وفعّل «VPN دائم التشغيل».<br>
@@ -144,6 +145,13 @@ nav a.on{color:var(--acc)}
 
 <!-- SETTINGS -->
 <section class="page" id="p-dns">
+  <h3>📤 شارك مانع</h3>
+  <div class="card">
+    <div class="note">أرسل البرنامج لأهلك وربعك.</div>
+    <button class="btn g" onclick="M.shareLink()">🔗 أرسل رابط التحميل</button>
+    <button class="btn s" onclick="M.shareFile()">📦 أرسل الملف نفسه</button>
+    <div class="note">الرابط أحسن، لأنه دايماً يحمّل آخر نسخة، وبعض البرامج مثل واتساب ما تقبل ملفات APK.</div>
+  </div>
   <h3>🔄 التحديثات</h3>
   <div class="card" id="updCard"></div>
   <h3>⏰ أوقات التقفيل</h3>
