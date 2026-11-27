@@ -283,6 +283,7 @@
     if (cmd === 'zap') { zapOn = !!a; return 1; }
     if (cmd === 'reader') return TOP ? reader() : 0;
     if (cmd === 'nextep') return TOP ? offerNext(false) : 0;
+    if (cmd === 'gest') { window.__gest = !!a; return 1; }
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
     if (cmd === 'pause') { document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); return 1; }
     if (cmd === 'intro') { window.__intro = a; return 1; }
@@ -377,7 +378,7 @@
       return;
     }
     if (!sw) {
-      if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.5) sw = true;
+      if (Math.abs(dx) > 24 && Math.abs(dx) > Math.abs(dy) * 1.5) { if (!window.__gest) { sx = null; return; } sw = true; }
       else if (cine() && Math.abs(dy) > 24 && Math.abs(dy) > Math.abs(dx) * 1.5) { vw = true; vside = sx < innerWidth / 2 ? 'b' : 'v'; vy = t.clientY; return; }
       else { if (Math.abs(dy) > 30) sx = null; return; }
     }
@@ -393,7 +394,7 @@
     if (vw) { vw = false; sx = null; bubT = setTimeout(function () { if (bub) bub.style.display = 'none'; }, 700); return; }
     if (sx !== null && !sw) {
       var v = mainVideo(), now = Date.now();
-      if (v && now - lastTap < 320 && Math.abs(tapX - lastX) < 60) {
+      if (window.__gest && v && now - lastTap < 320 && Math.abs(tapX - lastX) < 60) {
         var r = v.getBoundingClientRect(), rel = (tapX - r.left) / r.width;
         if (rel < 0.33) { window.__seek(-10); bubble('⏪ 10'); }
         else if (rel > 0.67) { window.__seek(10); bubble('⏩ 10'); }

@@ -53,6 +53,7 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 6.1 horizontal swipe-seek and double-tap are OFF by default (`gest` pref → `window.__gest`, menu toggle, `__cmd('gest')`); vertical brightness/volume in cinema stays.
 - 6.0 cinema/fullscreen controls (top overlay + bottom seek bar) hidden by default; `dispatchTouchEvent` ACTION_DOWN shows them, `hideCtl` hides after 3.5s (kept while dragging the seek bar).
 - 5.9 speed test: warm-up + best of 6, all servers in parallel; colours + ⭐; sheet offers fastest ad-blocking and fastest overall; servers() has `ads`; srvPick refuses non-family while clean mode is on.
 - 5.8 base list += the 126 domains of adblock.turtlecute.org (Turtlecute33/toolz `src/data/adblock_data.json`); in-app test uses the same list, failures first with «امنعه»; `Rules.load` recompiles in background when `rulesVer` ≠ versionCode.
