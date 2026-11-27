@@ -53,6 +53,7 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 7.8 +14 servers (DNS4EU ×5, CIRA ×3, UltraDNS ×2 — 64.6.64.6 is alive under Vercara, Gcore, Quad101, Level3, HE); all added to BYPASS_DNS.
 - 7.7 DNS servers: 25 entries with a 5th field kind (isp/ads/family/sec/plain); "isp" = underlying network DNS found via ConnectivityManager (`AdVpn.ispDns/resolved`); clean mode accepts any family server; more public DNS IPs in BYPASS_DNS.
 - 7.6 per-site ⏸ off switch (`b` pref set `off`): no request handling at all for that page (no stubs, filters, frame injection), DNS open gate on, script runs with `__off` (no CSS/cleanup/walls/ad-skip; video tools stay). Frame `window.open` override is now a plain assignment (non-writable property could throw in players' strict-mode code).
 - 7.5 fix: `backdrops()` removed the player's own "tap to play" cover (short text) → black player. Now only EMPTY, translucent layers without media/buttons/background image are removed (fixture `awplayer2.html`).
