@@ -80,6 +80,108 @@ public class BrowserActivity extends Activity {
     boolean bgOn() { return getSharedPreferences("b", 0).getBoolean("bg", true); }
     boolean pipOn() { return getSharedPreferences("b", 0).getBoolean("pip", true); }
 
+    static final String[][] ENGINES = {
+        {"google", "Google", "https://www.google.com/search?q="},
+        {"duck", "DuckDuckGo (بدون تتبّع)", "https://duckduckgo.com/?q="},
+        {"bing", "Bing", "https://www.bing.com/search?q="},
+        {"brave", "Brave Search", "https://search.brave.com/search?q="},
+    };
+
+    String engineUrl() {
+        String id = getSharedPreferences("b", 0).getString("engine", "google");
+        for (String[] e : ENGINES) if (e[0].equals(id)) return e[2];
+        return ENGINES[0][2];
+    }
+
+    void engineDialog() {
+        String id = getSharedPreferences("b", 0).getString("engine", "google");
+        String[] items = new String[ENGINES.length];
+        int sel = 0;
+        for (int i = 0; i < ENGINES.length; i++) { items[i] = ENGINES[i][1]; if (ENGINES[i][0].equals(id)) sel = i; }
+        new AlertDialog.Builder(this).setTitle("🔎 محرك البحث").setSingleChoiceItems(items, sel, new android.content.DialogInterface.OnClickListener() {
+            public void onClick(android.content.DialogInterface d, int w) {
+                getSharedPreferences("b", 0).edit().putString("engine", ENGINES[w][0]).apply();
+                toast("🔎 " + ENGINES[w][1]); d.dismiss();
+            }}).show();
+    }
+
+    // ---------- data saver / desktop per site ----------
+    boolean noImg() { return getSharedPreferences("b", 0).getBoolean("noimg", false); }
+    boolean deskFor(String host) { return getSharedPreferences("b", 0).getBoolean("desk:" + host, false); }
+
+    // ---------- add site to the phone's home screen ----------
+    void pinSite() {
+        final String u = web.getUrl();
+        if (u == null || !u.startsWith("http")) { toast("افتح موقع أول"); return; }
+        try {
+            if (Build.VERSION.SDK_INT < 26) { toast("جهازك ما يدعمها"); return; }
+            android.content.pm.ShortcutManager sm = getSystemService(android.content.pm.ShortcutManager.class);
+            if (sm == null || !sm.isRequestPinShortcutSupported()) { toast("الشاشة الرئيسية ما تدعم الأيقونات"); return; }
+            String title = web.getTitle() == null || web.getTitle().isEmpty() ? baseHost(Uri.parse(u).getHost()) : web.getTitle();
+            if (title.length() > 24) title = title.substring(0, 24);
+            int sz = 192;
+            Bitmap bm = Bitmap.createBitmap(sz, sz, Bitmap.Config.ARGB_8888);
+            android.graphics.Canvas cv = new android.graphics.Canvas(bm);
+            android.graphics.Paint pt = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            pt.setColor(Color.parseColor("#0369A1")); cv.drawCircle(sz / 2f, sz / 2f, sz / 2f, pt);
+            Bitmap fav = web.getFavicon();
+            if (fav != null) {
+                android.graphics.Rect dst = new android.graphics.Rect(sz / 4, sz / 4, sz * 3 / 4, sz * 3 / 4);
+                cv.drawBitmap(fav, null, dst, new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG));
+            } else {
+                pt.setColor(Color.WHITE); pt.setTextSize(96); pt.setTextAlign(android.graphics.Paint.Align.CENTER);
+                String letter = baseHost(Uri.parse(u).getHost());
+                cv.drawText(letter.isEmpty() ? "🌐" : letter.substring(0, 1).toUpperCase(Locale.ROOT), sz / 2f, sz / 2f + 34, pt);
+            }
+            Intent it = new Intent(this, BrowserActivity.class).setAction(Intent.ACTION_VIEW).setData(Uri.parse(u));
+            android.content.pm.ShortcutInfo si = new android.content.pm.ShortcutInfo.Builder(this, "site_" + u.hashCode())
+                .setShortLabel(title).setIcon(android.graphics.drawable.Icon.createWithBitmap(bm)).setIntent(it).build();
+            sm.requestPinShortcut(si, null);
+            toast("📌 وافق على إضافة الأيقونة");
+        } catch (Exception e) { toast("ما قدرت أضيف الأيقونة"); }
+    }
+
+    // ---------- read the page aloud ----------
+    android.speech.tts.TextToSpeech tts;
+    boolean speaking = false;
+
+    void readAloud() {
+        if (speaking) { if (tts != null) tts.stop(); speaking = false; toast("⏹️ وقّفت القراءة"); return; }
+        web.evaluateJavascript("window.__readText?__readText():(document.body?document.body.innerText.slice(0,20000):'')", new ValueCallback<String>() {
+            public void onReceiveValue(String v) {
+                String txt;
+                try { txt = new JSONArray("[" + v + "]").getString(0); } catch (Exception e) { txt = ""; }
+                if (txt.trim().length() < 20) { toast("ما لقيت كلام أقراه"); return; }
+                speak(txt);
+            }
+        });
+    }
+
+    void speak(final String txt) {
+        if (tts == null) {
+            tts = new android.speech.tts.TextToSpeech(getApplicationContext(), new android.speech.tts.TextToSpeech.OnInitListener() {
+                public void onInit(int st) { if (st == android.speech.tts.TextToSpeech.SUCCESS) speak(txt); else { tts = null; toast("ما في محرك قراءة بالتلفون"); } }
+            });
+            return;
+        }
+        int ar = 0;
+        for (int i = 0; i < Math.min(txt.length(), 2000); i++) { char ch = txt.charAt(i); if (ch >= 0x0600 && ch <= 0x06FF) ar++; }
+        int r = tts.setLanguage(ar > 50 ? new Locale("ar") : Locale.ENGLISH);
+        if (r == android.speech.tts.TextToSpeech.LANG_MISSING_DATA || r == android.speech.tts.TextToSpeech.LANG_NOT_SUPPORTED)
+            toast("حمّل صوت العربي من إعدادات «تحويل النص لكلام»");
+        tts.stop();
+        String rest = txt.replaceAll("\\s+", " ");
+        int n = 0;
+        while (!rest.isEmpty()) {
+            int cut = Math.min(rest.length(), 3500);
+            if (cut < rest.length()) { int dot = Math.max(rest.lastIndexOf(". ", cut), rest.lastIndexOf("۔", cut)); if (dot > 1000) cut = dot + 1; }
+            tts.speak(rest.substring(0, cut), android.speech.tts.TextToSpeech.QUEUE_ADD, null, "p" + (n++));
+            rest = rest.substring(cut);
+        }
+        speaking = true;
+        toast("🔊 أقرا الصفحة • من ⋮ توقفها");
+    }
+
     boolean darkOn() { return getSharedPreferences("b", 0).getBoolean("dark", false); }
     int introFor(String host) { return getSharedPreferences("b", 0).getInt("intro:" + host, 0); }
 
@@ -425,6 +527,7 @@ public class BrowserActivity extends Activity {
                 if (p > 30) cont.put(new org.json.JSONObject().put("u", u).put("t", x.optString("t")).put("p", tfmt(p)));
             }
             o.put("cont", cont);
+            o.put("engine", engineUrl());
             return o.toString();
         } catch (Exception e) { return "{}"; }
     }
@@ -787,6 +890,7 @@ public class BrowserActivity extends Activity {
         w.setBackgroundColor(Color.parseColor("#0B1220"));
         setupWeb(w);
         if (desktop) w.getSettings().setUserAgentString(DESKTOP_UA);
+        w.getSettings().setBlockNetworkImage(noImg());
         return w;
     }
 
@@ -861,6 +965,14 @@ public class BrowserActivity extends Activity {
                 synchronized (recentBlocked) { recentBlocked.clear(); }
                 pageHost = baseHost(Uri.parse(u).getHost());
                 loadRate();
+                boolean wantDesk = deskFor(pageHost);
+                boolean isDesk = DESKTOP_UA.equals(v.getSettings().getUserAgentString());
+                if (wantDesk != isDesk && !pageHost.isEmpty()) {
+                    v.getSettings().setUserAgentString(wantDesk ? DESKTOP_UA : defaultUA);
+                    desktop = wantDesk;
+                    v.stopLoading(); v.loadUrl(u);
+                    return;
+                }
                 curUrl = u;
                 vpanel.setVisibility(View.GONE);
                 updateShield();
@@ -1049,7 +1161,7 @@ public class BrowserActivity extends Activity {
         String target;
         if (q.startsWith("http://") || q.startsWith("https://")) target = q;
         else if (!q.contains(" ") && q.contains(".") && !q.endsWith(".")) target = "https://" + q;
-        else target = "https://www.google.com/search?q=" + Uri.encode(q);
+        else target = engineUrl() + Uri.encode(q);
         web.loadUrl(target);
         url.clearFocus();
         ((InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(url.getWindowToken(), 0);
@@ -1312,6 +1424,11 @@ public class BrowserActivity extends Activity {
             "⏲️ مؤقت النوم" + (sleepAtEnd || sleepAt > 0 ? " ✅" : ""),
             "⏭️ تخطّي المقدمة لهالموقع" + (introFor(pageHost) > 0 ? " (" + tfmt(introFor(pageHost)) + ")" : ""),
             "🖨️ احفظ الصفحة PDF",
+            "📌 حط الموقع على شاشة التلفون",
+            "📖 وضع القراءة",
+            speaking ? "⏹️ وقّف القراءة بصوت" : "🔊 اقرا الصفحة بصوت",
+            "🔎 محرك البحث",
+            "🖼️ توفير البيانات (بدون صور): " + (noImg() ? "شغّال ✅" : "طافي"),
             "🖼️ نافذة صغيرة (الفيديو فوق البرامج)",
             "🎧 الصوت بالخلفية: " + (bgOn() ? "شغّال ✅" : "طافي"),
             "🖼️ نافذة صغيرة تلقائية لما تطلع: " + (pipOn() ? "شغّالة ✅" : "طافية"),
@@ -1333,6 +1450,15 @@ public class BrowserActivity extends Activity {
             else if (it.startsWith("🌙")) { bp.edit().putBoolean("dark", !darkOn()).apply(); toast(darkOn() ? "🌙 الوضع الليلي شغّال" : "انطفى الوضع الليلي"); for (Tab t : tabs) if (t.view != null) t.view.reload(); }
             else if (it.startsWith("⏲️")) sleepDialog();
             else if (it.startsWith("⏭️")) introDialog();
+            else if (it.startsWith("📌")) pinSite();
+            else if (it.startsWith("📖")) web.evaluateJavascript("window.__cmd?__cmd('reader',1):0", new ValueCallback<String>() { public void onReceiveValue(String v) { if (!"1".equals(v)) toast("ما لقيت مقال في هالصفحة"); } });
+            else if (it.startsWith("🔊") || it.startsWith("⏹️")) readAloud();
+            else if (it.startsWith("🔎")) engineDialog();
+            else if (it.startsWith("🖼️ توفير")) {
+                bp.edit().putBoolean("noimg", !noImg()).apply();
+                for (Tab t : tabs) if (t.view != null) { t.view.getSettings().setBlockNetworkImage(noImg()); t.view.reload(); }
+                toast(noImg() ? "🖼️ الصور طافية • توفر بيانات" : "رجعت الصور");
+            }
             else if (it.startsWith("🖨️")) {
                 try {
                     android.print.PrintManager pm = (android.print.PrintManager) getSystemService(Context.PRINT_SERVICE);
@@ -1349,7 +1475,12 @@ public class BrowserActivity extends Activity {
             else if (it.startsWith("🔄")) web.reload();
             else if (it.startsWith("📤")) share(cur);
             else if (it.startsWith("🔗")) copy(cur);
-            else if (it.startsWith("📱") || it.startsWith("🖥️")) { desktop = !desktop; web.getSettings().setUserAgentString(desktop ? DESKTOP_UA : defaultUA); web.reload(); }
+            else if (it.startsWith("📱") || it.startsWith("🖥️")) {
+                desktop = !desktop;
+                if (!pageHost.isEmpty()) bp.edit().putBoolean("desk:" + pageHost, desktop).apply();
+                web.getSettings().setUserAgentString(desktop ? DESKTOP_UA : defaultUA); web.reload();
+                toast(desktop ? "🖥️ وضع الكمبيوتر لـ " + pageHost + " (ينحفظ)" : "📱 وضع الجوال");
+            }
             else if (it.startsWith("🔠")) textSizeDialog();
             else if (it.startsWith("📂")) openDownloads();
             else if (it.startsWith("🌍")) { try { startActivity(Intent.createChooser(new Intent(Intent.ACTION_VIEW, Uri.parse(cur)), "افتح في…")); } catch (Exception ignored) {} }
@@ -1714,6 +1845,7 @@ public class BrowserActivity extends Activity {
     }
     @Override protected void onResume() { super.onResume(); web.onResume(); }
     @Override protected void onDestroy() {
+        if (tts != null) try { tts.shutdown(); } catch (Exception ignored) {}
         for (Tab t : tabs) if (t.view != null) try { t.view.destroy(); } catch (Exception ignored) {}
         super.onDestroy();
     }

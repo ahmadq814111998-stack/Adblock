@@ -29,6 +29,17 @@ public class Stats {
         } catch (Exception ignored) {}
     }
 
+    public static synchronized int today(Context c) { load(c); Integer v = days.get(today()); return v == null ? 0 : v; }
+
+    public static synchronized long week(Context c) {
+        load(c);
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
+        long sum = 0;
+        for (int i = 0; i < 7; i++) { Integer v = days.get(f.format(cal.getTime())); if (v != null) sum += v; cal.add(java.util.Calendar.DAY_OF_YEAR, -1); }
+        return sum;
+    }
+
     public static synchronized void hit(Context c, String domain) {
         load(c);
         String d = today();

@@ -26,7 +26,7 @@ button{padding:0 20px;border-radius:26px;border:0;background:#0369A1;color:#fff;
 <body>
 <h1>🌐 متصفح مانع</h1>
 <p>بدون دعايات • تحميل • تسريع • تكبير • تلفزيون</p>
-<form onsubmit="var q=document.getElementById('q').value.trim();if(q)location.href=(/^https?:\/\//.test(q)?q:(/^[^\s]+\.[^\s]{2,}$/.test(q)?'https://'+q:'https://www.google.com/search?q='+encodeURIComponent(q)));return false">
+<form onsubmit="var q=document.getElementById('q').value.trim();if(q)location.href=(/^https?:\/\//.test(q)?q:(/^[^\s]+\.[^\s]{2,}$/.test(q)?'https://'+q:(window.__eng||'https://www.google.com/search?q=')+encodeURIComponent(q)));return false">
   <input id="q" placeholder="ابحث في جوجل أو اكتب رابط" autocomplete="off"><button>بحث</button>
 </form>
 <div id="cont"></div>
@@ -59,6 +59,7 @@ button{padding:0 20px;border-radius:26px;border:0;background:#0369A1;color:#fff;
 (function(){
   function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
   var d={};try{d=JSON.parse(MB.home())}catch(e){}
+  if(d.engine)window.__eng=d.engine;
   if(d.cont&&d.cont.length){document.getElementById('cont').innerHTML='<h3 class="sec">▶ كمّل المشاهدة</h3>'+d.cont.map(function(x){return '<a class="li" href="'+esc(x.u)+'"><b>'+esc(x.t)+'</b><span>⏱ '+esc(x.p)+'</span></a>'}).join('')}
   if(d.bm&&d.bm.length){document.getElementById('bms').innerHTML='<h3 class="sec">⭐ المفضلة</h3>'+d.bm.map(function(x){return '<a class="li" href="'+esc(x.u)+'"><b>⭐ '+esc(x.t)+'</b></a>'}).join('')}
 })();

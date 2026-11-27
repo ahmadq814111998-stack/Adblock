@@ -104,10 +104,46 @@ public class AdVpn extends VpnService implements Runnable {
         getSharedPreferences("m", 0).edit().putBoolean("on", false).apply();
         Stats.flush(this);
         QsTile.refresh(this);
+        Widget.refresh(this);
         pausedFor = null;
         stopVpn();
         try { stopForeground(true); } catch (Exception ignored) {}
         stopSelf();
+    }
+
+    // ---------- background chores: update notice + weekly report ----------
+    void chores() {
+        final SharedPreferences sp = getSharedPreferences("m", 0);
+        long now = System.currentTimeMillis();
+        if (now - sp.getLong("updCheck", 0) > 12 * 3600 * 1000L) {
+            Updater.check(this);
+            if ("available".equals(Updater.state) && !Updater.latestName.equals(sp.getString("updNotified", ""))) {
+                sp.edit().putString("updNotified", Updater.latestName).apply();
+                notify2(11, "🔄 في تحديث جديد لمانع " + Updater.latestName, Updater.notes.isEmpty() ? "اضغط وحدّث" : Updater.notes);
+            }
+        }
+        long last = sp.getLong("weekly", 0);
+        if (last == 0) sp.edit().putLong("weekly", now).apply();
+        else if (now - last > 7 * 86400000L) {
+            sp.edit().putLong("weekly", now).apply();
+            long w = Stats.week(this);
+            if (w > 0) notify2(12, "📊 تقرير الأسبوع", "مانع منع " + String.format(Locale.US, "%,d", w) + " دعاية ومتتبّع هالأسبوع 💪");
+        }
+    }
+
+    void notify2(int id, String title, String text) {
+        try {
+            android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            android.app.Notification.Builder nb;
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                nm.createNotificationChannel(new android.app.NotificationChannel("info", "تنبيهات مانع", android.app.NotificationManager.IMPORTANCE_DEFAULT));
+                nb = new android.app.Notification.Builder(this, "info");
+            } else nb = new android.app.Notification.Builder(this);
+            int ic = getResources().getIdentifier("ic_tile", "drawable", getPackageName());
+            nb.setSmallIcon(ic != 0 ? ic : android.R.drawable.ic_lock_lock).setContentTitle(title).setContentText(text).setAutoCancel(true)
+              .setContentIntent(android.app.PendingIntent.getActivity(this, id, new Intent(this, MainActivity.class), android.app.PendingIntent.FLAG_IMMUTABLE));
+            nm.notify(id, nb.build());
+        } catch (Exception ignored) {}
     }
 
     // ---------- pause while "VPN detected" apps (banks…) are open ----------
@@ -147,6 +183,8 @@ public class AdVpn extends VpnService implements Runnable {
             while (wanted) {
                 try {
                     if (++k % 5 == 0) set = pauseSet();
+                    if (k % 240 == 0) Widget.refresh(AdVpn.this);           // ~1 min
+                    if (k % 2400 == 1) chores();                             // ~10 min
                     if (k % 8 == 0) {   // lock-time started/ended: reconnect so apps drop open connections and DNS cache
                         boolean act = Schedule.active(AdVpn.this);
                         if (act != schActive) {
@@ -188,6 +226,7 @@ public class AdVpn extends VpnService implements Runnable {
 
     void note() {
         QsTile.refresh(this);
+        Widget.refresh(this);
         try {
             android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
             android.app.Notification.Builder nb;

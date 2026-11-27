@@ -164,6 +164,52 @@
   ['touchend', 'click'].forEach(function (ev) { document.addEventListener(ev, zapHandler, true); });
   document.addEventListener('touchstart', function (e) { if (zapOn) { e.preventDefault(); e.stopPropagation(); } }, { capture: true, passive: false });
 
+  // ---------- reader mode / text for read-aloud ----------
+  function article() {
+    if (!document.body) return null;
+    var best = null, score = new Map();
+    document.querySelectorAll('p, pre, li, blockquote').forEach(function (p) {
+      var t = (p.innerText || '').trim();
+      if (t.length < 40) return;
+      var a = p.parentElement, b = a && a.parentElement;
+      if (a) score.set(a, (score.get(a) || 0) + t.length);
+      if (b) score.set(b, (score.get(b) || 0) + t.length / 2);
+    });
+    var top = 0;
+    score.forEach(function (v, el) { if (v > top) { top = v; best = el; } });
+    var sem = document.querySelector('article, [itemprop="articleBody"], .entry-content, .post-content, .article-body, main');
+    if (sem && (sem.innerText || '').length > top * 0.8) best = sem;
+    return top > 400 || (best && (best.innerText || '').length > 400) ? best : null;
+  }
+  window.__readText = function () {
+    var a = article(), h = document.querySelector('h1');
+    return ((h ? h.innerText + '. ' : '') + (a ? a.innerText : (document.body ? document.body.innerText : ''))).slice(0, 30000);
+  };
+  function reader() {
+    var a = article();
+    if (!a) return 0;
+    var old = document.getElementById('__mreader'); if (old) old.remove();
+    var c = a.cloneNode(true);
+    c.querySelectorAll('script,style,iframe,form,nav,aside,button,input,select,noscript,svg,video,[class*="share"],[class*="related"],[class*="comment"],[class*="ad-"],[id*="ad-"],ins').forEach(function (x) { x.remove(); });
+    c.querySelectorAll('*').forEach(function (x) { x.removeAttribute('style'); x.removeAttribute('class'); x.removeAttribute('width'); x.removeAttribute('height'); });
+    var h1 = document.querySelector('h1'), title = h1 ? h1.innerText : document.title;
+    var w = document.createElement('div');
+    w.id = '__mreader';
+    w.setAttribute('dir', 'auto');
+    w.style.cssText = 'position:fixed;inset:0;z-index:2147483647;overflow:auto;background:#111827;color:#E5E7EB;padding:24px 20px 80px;font:19px/1.9 system-ui,"Noto Naskh Arabic",sans-serif;-webkit-text-size-adjust:100%';
+    var st = document.createElement('style');
+    st.textContent = '#__mreader img{max-width:100%;height:auto;border-radius:10px;margin:10px 0}#__mreader a{color:#7DD3FC}#__mreader h1{font-size:26px;line-height:1.5;margin:8px 0 18px}#__mreader h2,#__mreader h3{font-size:21px;margin:22px 0 8px}#__mreader p{margin:0 0 16px}';
+    var close = document.createElement('div');
+    close.textContent = '✕ رجوع للصفحة';
+    close.style.cssText = 'position:sticky;top:0;float:left;background:#1F2937;color:#fff;padding:8px 14px;border-radius:12px;font-size:15px;cursor:pointer';
+    close.onclick = function () { w.remove(); document.documentElement.style.overflow = ''; };
+    var h = document.createElement('h1'); h.textContent = title;
+    w.appendChild(st); w.appendChild(close); w.appendChild(h); w.appendChild(c);
+    document.documentElement.appendChild(w);
+    document.documentElement.style.overflow = 'hidden';
+    return 1;
+  }
+
   // ---------- commands: run here, then pass down to every iframe ----------
   function local(cmd, a) {
     var v = mainVideo();
@@ -182,6 +228,7 @@
     if (cmd === 'skip') return window.__skipAd();
     if (cmd === 'zoom') return zoomLocal(a);
     if (cmd === 'zap') { zapOn = !!a; return 1; }
+    if (cmd === 'reader') return TOP ? reader() : 0;
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
     if (cmd === 'pause') { document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); return 1; }
     if (cmd === 'intro') { window.__intro = a; return 1; }
