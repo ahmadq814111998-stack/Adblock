@@ -146,6 +146,8 @@ nav a.on{color:var(--acc)}
 <section class="page" id="p-dns">
   <h3>🔄 التحديثات</h3>
   <div class="card" id="updCard"></div>
+  <h3>⏰ أوقات التقفيل</h3>
+  <div class="card" id="schCard"></div>
   <h3>🔒 القفل</h3>
   <div class="card">
     <div class="note">رقم سري يمنع إيقاف المانع، أو الوضع النظيف، أو فلتر المحتوى، أو استثناء برامج أو السماح بمواقع، إلا بالرقم.</div>
@@ -217,7 +219,7 @@ function renderLists(){
   '<div class="sw '+(x.on?'on':'')+'" onclick="listToggle(\''+x.id+'\','+(!x.on)+')"></div></div>'});
  $('lists').innerHTML=h+'</div>';
 }
-var ST={b:['#EF4444','ممنوع (القوائم)'],bc:['#EF4444','ممنوع (أنت)'],bs:['#F59E0B','ممنوع (السيرفر)'],a:['#22C55E','مسموح'],ac:['#22C55E','مسموح (أنت)']};
+var ST={bt:['#A855F7','مقفول (وقت التقفيل) ⏰'],b:['#EF4444','ممنوع (القوائم)'],bc:['#EF4444','ممنوع (أنت)'],bs:['#F59E0B','ممنوع (السيرفر)'],a:['#22C55E','مسموح'],ac:['#22C55E','مسموح (أنت)']};
 function renderLog(){
  var q=$('lq').value.trim().toLowerCase(),l=J(M.log(lf))||[],h='';
  l.forEach(function(e){if(q&&e[1].indexOf(q)<0)return;var s=ST[e[2]]||ST.a;
@@ -283,6 +285,24 @@ function pinRemove(){ askPin('شيل الرقم السري',function(){ M.setPin
 function bigToggle(){var s=J(M.state())||{}; if(s.on) askPin('إيقاف المانع',function(){M.toggle();later()}); else {M.toggle();later()}}
 function cleanToggle(el){var on=!el.classList.contains('on'); var go=function(){M.setClean(on);el.classList.toggle('on',on);toast(on?'🧼 الوضع النظيف شغّال':'انطفى الوضع النظيف')}; if(on)go(); else askPin('إيقاف الوضع النظيف',go)}
 
+// ---------- lock times ----------
+var schEdit=null;
+function m2t(m){return ('0'+Math.floor(m/60)).slice(-2)+':'+('0'+m%60).slice(-2)}
+function t2m(t){var p=(t||'00:00').split(':');return (+p[0])*60+(+p[1]||0)}
+function renderSch(force){if(schEdit&&!force)return;var s=J(M.schedule())||{};if(!s.groups)return;
+ schEdit={on:s.on,from:s.from,to:s.to,groups:s.groups.filter(function(g){return g.on}).map(function(g){return g.id})};
+ var chips=s.groups.map(function(g){var on=schEdit.groups.indexOf(g.id)>=0;return '<span class="chip'+(on?' on':'')+'" data-g="'+g.id+'" onclick="schChip(this)">'+esc(g.label)+'</span>'}).join('');
+ $('schCard').innerHTML='<div class="row" style="padding:0 0 8px"><div class="t"><b>'+(s.active?'🔒 مقفول الحين':(s.on?'⏰ شغّال':'⏰ طافي'))+'</b><span>يقفّل البرامج اللي تختارها في الوقت اللي تحدده (مثلاً بالليل)</span></div><div class="sw'+(s.on?' on':'')+'" id="schSw" onclick="this.classList.toggle(\'on\')"></div></div>'+
+ '<div style="display:flex;gap:10px;align-items:center;margin:6px 0"><span class="note">من</span><input type="time" id="schF" value="'+m2t(s.from)+'" style="text-align:center"><span class="note">لين</span><input type="time" id="schT" value="'+m2t(s.to)+'" style="text-align:center"></div>'+
+ '<div class="chips" style="flex-wrap:wrap;margin:8px 0">'+chips+'</div>'+
+ '<button class="btn g" onclick="schSave()">💾 احفظ</button><div class="note">البرنامج المفتوح ممكن يكمّل كم دقيقة لين يحاول يتصل من جديد. ويحتاج المانع يكون شغّال.</div>'}
+function schChip(el){el.classList.toggle('on')}
+function schSave(){var g=[].slice.call(document.querySelectorAll('#schCard .chip.on')).map(function(e){return e.dataset.g});
+ var n={on:$('schSw').classList.contains('on'),from:t2m($('schF').value),to:t2m($('schT').value),groups:g};
+ var weaker=schEdit&&schEdit.on&&(!n.on||g.length<schEdit.groups.length||n.from!==schEdit.from||n.to!==schEdit.to);
+ var go=function(){M.setSchedule(JSON.stringify(n));schEdit=null;renderSch(true);toast(n.on?'⏰ انحفظ • يقفّل من '+m2t(n.from)+' لين '+m2t(n.to):'انطفت أوقات التقفيل')};
+ if(weaker)askPin('تعديل أوقات التقفيل',go);else go()}
+
 // ---------- stats ----------
 function renderStats(){var st=J(M.stats())||{};if(!st.days)return;var mx=1;st.days.forEach(function(d){if(d[1]>mx)mx=d[1]});
  var D=['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
@@ -301,7 +321,7 @@ function renderUpd(){var u=J(M.upd())||{},v=M.version(),h='',b='';
   (u.state==='available'?'<button class="btn" style="background:#0369A1" onclick="M.doUpdate()">حدّث الحين</button>':'<button class="btn s" onclick="M.checkUpdate(true);later()">🔄 تأكد من التحديثات</button>');
  $('updCard').innerHTML=h;$('verLine').textContent='مانع '+v}
 
-var _r=refresh;refresh=function(){_r();try{renderUpd();if(cur==='home')renderStats();var hp=M.hasPin();$('pinState').textContent=hp?'🔒 القفل شغّال':'🔓 ما في رقم سري';$('pinDel').style.display=hp?'block':'none'}catch(e){}};
+var _r=refresh;refresh=function(){_r();try{if(cur==='dns')renderSch();else schEdit=null;renderUpd();if(cur==='home')renderStats();var hp=M.hasPin();$('pinState').textContent=hp?'🔒 القفل شغّال':'🔓 ما في رقم سري';$('pinDel').style.display=hp?'block':'none'}catch(e){}};
 refresh();setInterval(refresh,1500);
 M.checkUpdate(false);
 if(M.firstRun())M.updateAll();

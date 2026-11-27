@@ -984,11 +984,12 @@ public class BrowserActivity extends Activity {
             if (w == l.size()) { openDownloads(); return; }
             final String u = l.get(w)[0];
             if (u.toLowerCase(Locale.ROOT).contains(".m3u8")) {
-                new AlertDialog.Builder(BrowserActivity.this).setTitle("📡 بث مقطّع (m3u8)")
-                    .setMessage("هذا فيديو بث مقطّع، ما ينحمل كملف واحد.\nتقدر تفتحه في برنامج ثاني مثل VLC أو تعرضه على التلفزيون.")
-                    .setPositiveButton("افتح ببرنامج ثاني", new android.content.DialogInterface.OnClickListener(){public void onClick(android.content.DialogInterface x,int y){openExternal(u);}})
+                new AlertDialog.Builder(BrowserActivity.this).setTitle("📡 فيديو بث (m3u8)")
+                    .setMessage("أحمّله لك كفيديو واحد في التنزيلات ← Mane3؟\nيطلع لك التقدّم في الإشعارات، وخل البرنامج مفتوح أو المانع شغّال لين يخلص.")
+                    .setPositiveButton("📥 حمّله", new android.content.DialogInterface.OnClickListener(){public void onClick(android.content.DialogInterface x,int y){hls(u);}})
+                    .setNegativeButton("افتح ببرنامج ثاني", new android.content.DialogInterface.OnClickListener(){public void onClick(android.content.DialogInterface x,int y){openExternal(u);}})
                     .setNeutralButton("انسخ الرابط", new android.content.DialogInterface.OnClickListener(){public void onClick(android.content.DialogInterface x,int y){copy(u);}})
-                    .setNegativeButton("إلغاء", null).show();
+                    .show();
                 return;
             }
             new AlertDialog.Builder(BrowserActivity.this).setTitle(URLUtil.guessFileName(u, null, null))
@@ -1274,6 +1275,20 @@ public class BrowserActivity extends Activity {
     void updateShield() {
         int n = popsBlocked + blockedHere + skippedHere;
         bShield.setText((isStealth() ? "🥷" : "🛡️") + (n > 0 ? String.valueOf(n) : ""));
+    }
+
+    void hls(String u) {
+        if (isProtected(web.getUrl() == null ? "" : web.getUrl())) { toast("هالموقع ما يسمح بالتحميل"); return; }
+        Map<String, String> h = new HashMap<>();
+        h.put("User-Agent", web.getSettings().getUserAgentString());
+        String ref = web.getUrl();
+        if (ref != null && ref.startsWith("http")) { h.put("Referer", ref); h.put("Origin", Uri.parse(ref).getScheme() + "://" + Uri.parse(ref).getHost()); }
+        String ck = CookieManager.getInstance().getCookie(u);
+        if (ck != null) h.put("Cookie", ck);
+        toast("📥 بدا التحميل • شوف الإشعارات");
+        HlsDownloader.start(this, u, web.getTitle(), h, new HlsDownloader.Done() { public void on(final String m) {
+            runOnUiThread(new Runnable() { public void run() { toast(m); } });
+        }});
     }
 
     // ---------- video controls ----------

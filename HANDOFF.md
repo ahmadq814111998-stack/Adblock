@@ -26,6 +26,7 @@ Java rules (dx limits): **no lambdas, no method refs** (use anonymous classes); 
   **Pause for "VPN detected" apps** (banks): apps in pref `excluded` → watcher thread (UsageStats, needs Usage Access) closes the tunnel while they're in front.
   Banks check at launch, so `LaunchActivity` + pinned shortcut (⏸ badge) pauses first, then opens the app (`PAUSE` action, resumes when user leaves).
 - `Rules`: 1.4M domains as sorted 64-bit FNV hashes (`rules.bin` cache), suffix match; custom allow/block sets. `Lists`: catalog (HaGeZi, OISD, AdAway, StevenBlack, 1Hosts, TIF, native trackers, gambling, NSFW) downloaded from GitHub raw, weekly refresh. `assets/base.txt.gz` = offline fallback.
+- `Schedule`: lock-time groups (Instagram, TikTok, Snap, YouTube, X, Facebook, Netflix/Shahid, games) checked before Rules in `AdVpn.handle`.
 - `Dns`: IPv4/UDP/DNS parse + build (pure Java, unit-testable).
 - `MainActivity` = WebView UI `assets/index.html` + `Bridge` (@JavascriptInterface "M"). Tabs: الرئيسية / الأنواع / السجل / قوائمي / البرامج / ⚙️ الإعدادات.
 - `BrowserActivity`: native WebView browser. Ad blocking via `shouldInterceptRequest` (Rules → stub JS/GIF responses so anti-adblock doesn't notice),
@@ -51,3 +52,4 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 1.0 DNS VPN. 2.x lists, log, custom lists, apps, DNS choice, test card. 3.0 browser. 3.1 video panel + stealth. 3.2 popup/redirect guard. 3.3 iframe injection. 3.4–3.7 lure dialogs, zap. 3.5 seek bar/swipe, silent blocking. 3.6 double-tap, resume. 3.8–3.9 bank pause + safe shortcut. 4.0 clean mode. 4.1 performance (throttled scans, DNS cache). 4.2 word filter.
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
+- 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).

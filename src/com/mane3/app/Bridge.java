@@ -227,6 +227,13 @@ public class Bridge {
         } catch (Throwable t) { return "manual"; }
     }
 
+    // ---------- lock times ----------
+    @JavascriptInterface public String schedule() { return Schedule.json(c); }
+    @JavascriptInterface public void setSchedule(String json) {
+        Schedule.save(c, json);
+        a.runOnUiThread(new Runnable() { public void run() { a.restartVpn(); } });
+    }
+
     // ---------- stats ----------
     @JavascriptInterface public String stats() { return Stats.json(c); }
     @JavascriptInterface public void resetStats() { Stats.reset(c); }

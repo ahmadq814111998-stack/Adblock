@@ -43,6 +43,7 @@ public class AdVpn extends VpnService implements Runnable {
     public static volatile boolean wanted = false;    // user switched it on
     public static volatile String pausedFor = null;   // package that paused it
     private Thread watcher;
+    private boolean schActive = false;
     private String lastFg = null;
     public static final AtomicInteger total = new AtomicInteger();
     public static final AtomicInteger blocked = new AtomicInteger();
@@ -146,6 +147,13 @@ public class AdVpn extends VpnService implements Runnable {
             while (wanted) {
                 try {
                     if (++k % 5 == 0) set = pauseSet();
+                    if (k % 8 == 0) {   // lock-time started/ended: reconnect so apps drop open connections and DNS cache
+                        boolean act = Schedule.active(AdVpn.this);
+                        if (act != schActive) {
+                            schActive = act;
+                            if (running && pausedFor == null) { stopVpn(); Thread.sleep(400); startVpn(); }
+                        }
+                    }
                     if (manualPkg != null) {
                         boolean ok = usageOk(AdVpn.this);
                         String fg = ok ? foreground() : null;
@@ -277,7 +285,10 @@ public class AdVpn extends VpnService implements Runnable {
             total.incrementAndGet();
             int r = Rules.check(q.name);
             byte[] answer;
-            if (r == Rules.BLOCK_LIST || r == Rules.BLOCK_CUSTOM) {
+            if (Schedule.blocks(this, q.name)) {
+                answer = Dns.blockedAnswer(q.dns);
+                log(q.name, "bt");
+            } else if (r == Rules.BLOCK_LIST || r == Rules.BLOCK_CUSTOM) {
                 answer = Dns.blockedAnswer(q.dns);
                 blocked.incrementAndGet();
                 Stats.hit(this, q.name);
