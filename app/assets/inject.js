@@ -20,7 +20,7 @@
       document.hasFocus = function () { return true; };
       // Capture on window runs before any listener on document, even ones the site added earlier.
       var stop = function (e) { e.stopImmediatePropagation(); };
-      ['visibilitychange', 'webkitvisibilitychange', 'blur', 'pagehide', 'freeze'].forEach(function (ev) {
+      ['visibilitychange', 'webkitvisibilitychange', 'blur'].forEach(function (ev) {
         window.addEventListener(ev, stop, true);
         document.addEventListener(ev, stop, true);
       });
@@ -34,7 +34,11 @@
         if (Date.now() - lastUser < 1500) { wasPlaying.delete(v); return; }          // you paused it yourself
         if (window.__mpaused) { wasPlaying.delete(v); return; }                     // paused by the app (sleep timer, ⏯)
         if (!window.__mbg) return;                                                    // only while the app is in the background
-        setTimeout(function () { try { v.play(); } catch (x) {} }, 150);
+        var now = Date.now();
+        v.__mres = (v.__mres || []).filter(function (t) { return now - t < 30000; });
+        if (v.__mres.length >= 2) return;                                             // the system keeps pausing it: stop fighting (that caused stutter)
+        v.__mres.push(now);
+        setTimeout(function () { try { if (v.paused) v.play(); } catch (x) {} }, 400);
       }, true);
     } catch (e) {}
   }
@@ -310,7 +314,19 @@
     if (cmd === 'dtap') { window.__dtap = !!a; return 1; }
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
     if (cmd === 'pause') { window.__mpaused = true; document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); setTimeout(function () { window.__mpaused = false; }, 1500); return 1; }
-    if (cmd === 'bgstate') { window.__mbg = !!a; return 1; }
+    if (cmd === 'bgstate') {
+      window.__mbg = !!a;
+      if (!a) {   // back in front: if a video that should be playing is stuck, nudge it so sound and picture sync again
+        document.querySelectorAll('video').forEach(function (x) {
+          if (x.paused || x.ended || isAd()) return;
+          var t0 = x.currentTime;
+          setTimeout(function () {
+            if (!x.paused && Math.abs(x.currentTime - t0) < 0.05) { try { x.currentTime = t0 + 0.05; x.play(); } catch (e) {} }
+          }, 900);
+        });
+      }
+      return 1;
+    }
     if (cmd === 'intro') { window.__intro = a; return 1; }
     if (cmd === 'hush') { document.querySelectorAll('video,audio').forEach(function (v) { try { v.pause(); v.muted = true; } catch (e) {} }); return 1; }
     return 0;

@@ -53,6 +53,7 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 6.6 background resume limited to 2 per 30s per video (fighting the system caused stutter); pagehide/freeze no longer blocked; on return (`bgstate` 0) a stuck playing video gets nudged.
 - 6.5 background play: visibility/blur/pagehide/freeze blocked on window capture (beats listeners added before our late injection); `bgstate` cmd marks background, and a site-initiated pause in background is undone unless the user touched the page or the app paused (`__mpaused`).
 - 6.4 share the app: link (github raw redirect) or the APK itself (copied to Download/Mane3 via MediaStore); in settings, home and browser menu.
 - 6.3 orientation: real fullscreen/cinema → SENSOR_LANDSCAPE, exit → PORTRAIT; pseudo-fullscreen (landscape video/iframe stretched over the screen) detected in scan → `MB.orient(big)` → landscape + hide bars; vertical videos ignored; player `dblclick` blocked over the video (stops players toggling fullscreen on double tap); iframes get `allowfullscreen`.
