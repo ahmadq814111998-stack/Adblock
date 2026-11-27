@@ -137,10 +137,13 @@ public class Bridge {
         try {
             JSONArray arr = new JSONArray();
             String cur = AdVpn.server(c)[0];
-            for (String[] s : AdVpn.SERVERS) {
+            for (String[] s0 : AdVpn.SERVERS) {
+                String[] s = AdVpn.resolved(c, s0);
                 JSONObject o = new JSONObject();
                 o.put("id", s[0]); o.put("name", s[1]); o.put("ip", s[2]); o.put("on", s[0].equals(cur));
-                o.put("ads", s[0].startsWith("adguard") || s[0].equals("controld"));
+                o.put("ads", "ads".equals(s[4]) || "family".equals(s[4]) && s[0].startsWith("adguard"));
+                o.put("family", "family".equals(s[4]));
+                o.put("kind", s[4]);
                 arr.put(o);
             }
             return arr.toString();
@@ -199,8 +202,10 @@ public class Bridge {
         Set<String> s = Lists.enabled(c);
         if (on) {
             String cur = p().getString("server", "adguard");
-            if (!cur.equals("adguard_family")) e.putString("prevServer", cur);
-            e.putString("server", "adguard_family").putBoolean("clean", true);
+            boolean fam = false;
+            for (String[] sv : AdVpn.SERVERS) if (sv[0].equals(cur) && "family".equals(sv[4])) fam = true;
+            if (!fam) { e.putString("prevServer", cur); e.putString("server", "adguard_family"); }
+            e.putBoolean("clean", true);
             s.add("hnsfw"); s.add("hgamble");
         } else {
             e.putString("server", p().getString("prevServer", "adguard")).putBoolean("clean", false);
@@ -288,7 +293,8 @@ public class Bridge {
             try {
                 final JSONObject o = new JSONObject();
                 List<Thread> ts = new ArrayList<>();
-                for (final String[] sv : AdVpn.SERVERS) {
+                for (final String[] sv0 : AdVpn.SERVERS) {
+                    final String[] sv = AdVpn.resolved(c, sv0);
                     Thread t = new Thread(new Runnable() { public void run() {
                         int ms = ping(sv[2]);
                         synchronized (o) { try { o.put(sv[0], ms); } catch (Exception ignored) {} }

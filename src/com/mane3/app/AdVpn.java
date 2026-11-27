@@ -29,19 +29,66 @@ public class AdVpn extends VpnService implements Runnable {
     private volatile boolean manualSeen = false;
     static final String FAKE_DNS = "10.111.0.53";
 
+    /** id, name, primary, secondary, kind (ads = blocks ads, family = ads/adult, sec = malware, plain = no filter, isp = your network). */
     public static final String[][] SERVERS = {
-        {"adguard", "AdGuard (يمنع دعايات)", "94.140.14.14", "94.140.15.15"},
-        {"adguard_family", "AdGuard عائلي (دعايات + كبار)", "94.140.14.15", "94.140.15.16"},
-        {"controld", "Control D (دعايات + تتبّع)", "76.76.2.2", "76.76.10.2"},
-        {"quad9", "Quad9 (حماية من الفيروسات)", "9.9.9.9", "149.112.112.112"},
-        {"cf_security", "Cloudflare (حماية)", "1.1.1.2", "1.0.0.2"},
-        {"cloudflare", "Cloudflare (أسرع، بدون فلترة)", "1.1.1.1", "1.0.0.1"},
-        {"google", "Google (بدون فلترة)", "8.8.8.8", "8.8.4.4"},
+        {"isp", "DNS شبكتك (زين / Ooredoo / STC)", "", "", "isp"},
+        {"adguard", "AdGuard (يمنع دعايات)", "94.140.14.14", "94.140.15.15", "ads"},
+        {"adguard_family", "AdGuard عائلي (دعايات + كبار)", "94.140.14.15", "94.140.15.16", "family"},
+        {"adguard_plain", "AdGuard بدون فلترة", "94.140.14.140", "94.140.14.141", "plain"},
+        {"controld", "Control D (دعايات + تتبّع)", "76.76.2.2", "76.76.10.2", "ads"},
+        {"controld_sec", "Control D (فيروسات)", "76.76.2.1", "76.76.10.1", "sec"},
+        {"controld_plain", "Control D بدون فلترة", "76.76.2.0", "76.76.10.0", "plain"},
+        {"alternate", "Alternate DNS (دعايات)", "76.76.19.19", "76.223.122.150", "ads"},
+        {"quad9", "Quad9 (حماية من الفيروسات)", "9.9.9.9", "149.112.112.112", "sec"},
+        {"quad9_plain", "Quad9 بدون فلترة", "9.9.9.10", "149.112.112.10", "plain"},
+        {"cf_security", "Cloudflare (حماية)", "1.1.1.2", "1.0.0.2", "sec"},
+        {"cf_family", "Cloudflare عائلي (حماية + كبار)", "1.1.1.3", "1.0.0.3", "family"},
+        {"cloudflare", "Cloudflare (أسرع، بدون فلترة)", "1.1.1.1", "1.0.0.1", "plain"},
+        {"google", "Google (بدون فلترة)", "8.8.8.8", "8.8.4.4", "plain"},
+        {"opendns", "OpenDNS (حماية)", "208.67.222.222", "208.67.220.220", "sec"},
+        {"opendns_family", "OpenDNS عائلي", "208.67.222.123", "208.67.220.123", "family"},
+        {"cleanbrowsing_family", "CleanBrowsing عائلي", "185.228.168.168", "185.228.169.168", "family"},
+        {"cleanbrowsing_adult", "CleanBrowsing (يمنع الكبار)", "185.228.168.10", "185.228.169.11", "family"},
+        {"cleanbrowsing_sec", "CleanBrowsing (حماية)", "185.228.168.9", "185.228.169.9", "sec"},
+        {"comodo", "Comodo (حماية)", "8.26.56.26", "8.20.247.20", "sec"},
+        {"dnssb", "DNS.SB (بدون فلترة، خصوصية)", "185.222.222.222", "45.11.45.11", "plain"},
+        {"dns0", "DNS0.eu (حماية)", "193.110.81.0", "185.253.5.0", "sec"},
+        {"dns0_kids", "DNS0.eu أطفال", "193.110.81.1", "185.253.5.1", "family"},
+        {"yandex", "Yandex (بدون فلترة)", "77.88.8.8", "77.88.8.1", "plain"},
+        {"yandex_family", "Yandex عائلي", "77.88.8.7", "77.88.8.3", "family"},
     };
+
+    /** The phone network's own DNS (not the VPN's), IPv4 only. */
+    public static String[] ispDns(Context c) {
+        ArrayList<String> out = new ArrayList<>();
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager) c.getSystemService(Context.CONNECTIVITY_SERVICE);
+            for (android.net.Network n : cm.getAllNetworks()) {
+                android.net.NetworkCapabilities nc = cm.getNetworkCapabilities(n);
+                if (nc == null || nc.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) || !nc.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)) continue;
+                android.net.LinkProperties lp = cm.getLinkProperties(n);
+                if (lp == null) continue;
+                for (java.net.InetAddress a : lp.getDnsServers())
+                    if (a instanceof java.net.Inet4Address && !out.contains(a.getHostAddress())) out.add(a.getHostAddress());
+            }
+        } catch (Exception ignored) {}
+        return out.toArray(new String[0]);
+    }
+
+    /** Server with real addresses (the network one is looked up now; falls back to Cloudflare). */
+    public static String[] resolved(Context c, String[] s) {
+        if (!"isp".equals(s[0])) return s;
+        String[] d = ispDns(c);
+        return new String[]{s[0], s[1], d.length > 0 ? d[0] : "1.1.1.1", d.length > 1 ? d[1] : (d.length > 0 ? d[0] : "1.0.0.1"), s[4]};
+    }
+
 
     static final String[] BYPASS_DNS = {"8.8.8.8", "8.8.4.4", "1.1.1.1", "1.0.0.1", "1.1.1.2", "1.0.0.2", "1.1.1.3", "1.0.0.3", "9.9.9.9", "149.112.112.112",
         "208.67.222.222", "208.67.220.220", "94.140.14.14", "94.140.15.15", "94.140.14.15", "94.140.15.16", "76.76.2.2", "76.76.10.2",
-        "185.228.168.9", "185.228.169.9", "45.90.28.0", "45.90.30.0", "8.26.56.26", "8.20.247.20", "77.88.8.8", "77.88.8.1"};
+        "185.228.168.9", "185.228.169.9", "45.90.28.0", "45.90.30.0", "8.26.56.26", "8.20.247.20", "77.88.8.8", "77.88.8.1",
+        "94.140.14.140", "94.140.14.141", "76.76.2.0", "76.76.2.1", "76.76.10.0", "76.76.10.1", "76.76.19.19", "76.223.122.150", "9.9.9.10", "149.112.112.10",
+        "9.9.9.11", "149.112.112.11", "208.67.222.123", "208.67.220.123", "185.228.168.168", "185.228.169.168", "185.228.168.10", "185.228.169.11",
+        "185.222.222.222", "45.11.45.11", "193.110.81.0", "185.253.5.0", "193.110.81.1", "185.253.5.1", "77.88.8.7", "77.88.8.3", "4.2.2.1", "4.2.2.2"};
     public static volatile boolean running = false;   // tunnel is up
     public static volatile boolean wanted = false;    // user switched it on
     public static volatile String pausedFor = null;   // package that paused it
@@ -263,6 +310,7 @@ public class AdVpn extends VpnService implements Runnable {
                 new Thread(new Runnable() { public void run() { Rules.load(lc); } }).start();
             }
             String[] s = server(this);
+            s = resolved(this, s);
             upstream = new String[]{s[2], s[3], s[2].startsWith("1.") ? "8.8.8.8" : "1.1.1.1"};
             Builder b = new Builder();
             b.setSession("مانع الدعايات");
