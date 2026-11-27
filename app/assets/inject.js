@@ -63,6 +63,11 @@
   // ---------- tell the app about player iframes so it can inject into them ----------
   function reportFrame(f) {
     try {
+      if (!f.hasAttribute('allowfullscreen')) f.setAttribute('allowfullscreen', '');
+      var al = f.getAttribute('allow') || '';
+      if (al.indexOf('fullscreen') < 0) f.setAttribute('allow', (al ? al + '; ' : '') + 'fullscreen; autoplay; picture-in-picture');
+    } catch (e) {}
+    try {
       var u = f.src;
       if (u && u.indexOf('http') === 0 && f.__mrep !== u) { f.__mrep = u; B.frame && B.frame(u); }
     } catch (e) {}
@@ -389,6 +394,13 @@
     var d = target - st;
     bubble((d >= 0 ? '⏩ +' : '⏪ -') + fmt(Math.abs(d)) + '   ' + fmt(target) + ' / ' + fmt(v.duration));
   }, { passive: true, capture: true });
+  document.addEventListener('dblclick', function (e) {
+    if (window.__dtap === false) return;
+    var v = mainVideo();
+    if (!v) return;
+    var r = v.getBoundingClientRect();
+    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) { e.stopImmediatePropagation(); e.preventDefault(); }
+  }, true);
   var lastTap = 0, lastX = 0, tapX = 0, tapY = 0;
   document.addEventListener('touchstart', function (e) { if (e.touches.length === 1) { tapX = e.touches[0].clientX; tapY = e.touches[0].clientY; } }, { passive: true, capture: true });
   document.addEventListener('touchend', function (e) {
@@ -718,6 +730,18 @@
       if (u && u.indexOf('http') == 0 && s.indexOf(u) < 0) s.push(u);
     });
     if (s.length) try { B.media(JSON.stringify(s), document.title || ''); } catch (e) {}
+    if (TOP) {
+      var big = false, W = innerWidth, H = innerHeight;
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        document.querySelectorAll('video, iframe').forEach(function (el) {
+          if (big || el.id === '__mreader') return;
+          var r = el.getBoundingClientRect();
+          if (el.tagName === 'VIDEO' && !(el.videoWidth > el.videoHeight * 1.2)) return;   // vertical videos (shorts/reels) stay portrait
+          if (r.width >= W * 0.95 && r.height >= H * 0.85 && r.top <= H * 0.08 && el.getAttribute('data-mz') == null) big = true;
+        });
+      }
+      if (big !== window.__mbig) { window.__mbig = big; try { B.orient(big); } catch (e) {} }
+    }
     var mine = !!document.querySelector('video');
     if (mine && !TOP) { try { parent.postMessage({ __mfv: 1 }, '*'); } catch (e) {} }
     if (TOP) {

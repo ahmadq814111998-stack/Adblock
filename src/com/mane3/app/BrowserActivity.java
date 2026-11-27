@@ -962,6 +962,18 @@ public class BrowserActivity extends Activity {
         CookieManager.getInstance().setAcceptThirdPartyCookies(wv, true);
         wv.addJavascriptInterface(new Object() {
             @JavascriptInterface public String bright(float d) { return doBright(d); }
+            @JavascriptInterface public void orient(final boolean big) {
+                if (wv != web) return;
+                runOnUiThread(new Runnable() { public void run() {
+                    pseudoFull = big;
+                    if (cinema()) return;
+                    setRequestedOrientation(big ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                    immersive(big);
+                    top.setVisibility(big ? View.GONE : View.VISIBLE);
+                    bottom.setVisibility(big ? View.GONE : View.VISIBLE);
+                    if (big) vpanel.setVisibility(View.GONE);
+                }});
+            }
             @JavascriptInterface public String vol(float d) { return doVol(d); }
             @JavascriptInterface public String home() {
                 String cu = curUrl;
@@ -1135,7 +1147,7 @@ public class BrowserActivity extends Activity {
                 if (customCb != null) customCb.onCustomViewHidden();
                 customCb = null;
                 if (zoomMode == 0) { immersive(false); overlay.setVisibility(View.GONE); web.evaluateJavascript("window.__cmd&&__cmd('cine',0)", null); }
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                setRequestedOrientation(pseudoFull ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             }
         });
 
@@ -1300,7 +1312,7 @@ public class BrowserActivity extends Activity {
                 web.evaluateJavascript("!!(document.querySelector('video')||window.__fv)", new ValueCallback<String>() { public void onReceiveValue(String v) { vpanel.setVisibility("true".equals(v) ? View.VISIBLE : View.GONE); } });
                 immersive(false);
                 overlay.setVisibility(View.GONE);
-                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                setRequestedOrientation(pseudoFull ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE : ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
             }
         }
     }
@@ -1325,6 +1337,7 @@ public class BrowserActivity extends Activity {
     }};
 
     boolean cinema() { return zoomMode > 0 || customView != null; }
+    boolean pseudoFull = false;
 
     void showOverlay() {
         ctlShown = true;

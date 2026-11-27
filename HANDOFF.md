@@ -53,6 +53,7 @@ Headless Chrome (`/opt/google/chrome/chrome`) + Playwright: `tests/web/*.html` a
 - 5.0 tabs/bookmarks/history, PiP, background audio, stats, PIN lock, backup, quick tile, boot start, updater.
 - 5.1 updater points to this repo (`updates/`). First version that can update itself.
 - 5.2 `Schedule` (lock app domain groups during set hours; VPN reconnects at start/end so open connections drop; log code `bt`), `HlsDownloader` (m3u8 → one .ts/.mp4 in Download/Mane3 via MediaStore; best variant; unencrypted VOD only; test: `tests/java/.../HlsTest.java` with an ffmpeg-made stream).
+- 6.3 orientation: real fullscreen/cinema → SENSOR_LANDSCAPE, exit → PORTRAIT; pseudo-fullscreen (landscape video/iframe stretched over the screen) detected in scan → `MB.orient(big)` → landscape + hide bars; vertical videos ignored; player `dblclick` blocked over the video (stops players toggling fullscreen on double tap); iframes get `allowfullscreen`.
 - 6.2 split: double-tap (`dtap`, default ON) and horizontal swipe (`gest`, default OFF) are separate menu toggles. Owner wants double-tap, not swipe.
 - 6.1 horizontal swipe-seek and double-tap are OFF by default (`gest` pref → `window.__gest`, menu toggle, `__cmd('gest')`); vertical brightness/volume in cinema stays.
 - 6.0 cinema/fullscreen controls (top overlay + bottom seek bar) hidden by default; `dispatchTouchEvent` ACTION_DOWN shows them, `hideCtl` hides after 3.5s (kept while dragging the seek bar).
