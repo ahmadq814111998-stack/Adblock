@@ -541,10 +541,13 @@
       for (var e = el, d = 0; e && e !== document.body && d < 12; e = up(e), d++) {
         if (e.nodeType !== 1) continue;
         var cs = getComputedStyle(e);
-        if (cs.position !== 'fixed' && cs.position !== 'sticky' && e.getAttribute('role') !== 'dialog' && e.tagName !== 'DIALOG') continue;
+        var fixedLike = cs.position === 'fixed' || cs.position === 'sticky' || e.getAttribute('role') === 'dialog' || e.tagName === 'DIALOG';
+        // a box placed over the player ("please disable your ad blocker" inside the video area)
+        var boxed = cs.position === 'absolute' && (e.innerText || '').length <= 300;
+        if (!fixedLike && !boxed) continue;
         if (cs.display === 'none' || cs.visibility === 'hidden') continue;
         var r = e.getBoundingClientRect();
-        if (r.width * r.height >= W * H * 0.12 && out.indexOf(e) < 0) { out.push(e); break; }
+        if (r.width * r.height >= W * H * (fixedLike ? 0.12 : 0.03) && out.indexOf(e) < 0) { out.push(e); break; }
       }
     });
     return out;
@@ -557,11 +560,16 @@
   }
   function backdrops() {
     var out = [], W = innerWidth, H = innerHeight;
-    shallow().forEach(function (e) {
+    var cand = shallow();
+    document.querySelectorAll('video').forEach(function (v) {   // dark layers laid over the player
+      for (var p = v.parentElement, d = 0; p && d < 4; p = p.parentElement, d++) [].forEach.call(p.children, function (c) { cand.push(c); });
+    });
+    cand.forEach(function (e) {
       var cs = getComputedStyle(e);
-      if (cs.position !== 'fixed') return;
+      if (cs.position !== 'fixed' && !(cs.position === 'absolute' && !TOP)) return;
       var r = e.getBoundingClientRect();
-      if (r.width >= W * 0.9 && r.height >= H * 0.9 && (parseInt(cs.zIndex) || 0) > 10 && (e.innerText || '').trim().length < 40 && !e.querySelector('video')) out.push(e);
+      var k = TOP ? 0.9 : 0.8, zmin = TOP ? 10 : 0;
+      if (r.width >= W * k && r.height >= H * k && (parseInt(cs.zIndex) || 0) > zmin && (e.innerText || '').trim().length < 40 && !e.querySelector('video')) out.push(e);
     });
     return out;
   }
@@ -578,7 +586,6 @@
   }
   var reported = false, removed = 0;
   function checkWalls() {
-    if (!TOP) return;
     var w = walls();
     if (!w.length) return;
     if (STEALTH) {

@@ -1189,10 +1189,13 @@ public class BrowserActivity extends Activity {
                 Uri u = r.getUrl();
                 String host = u.getHost();
                 if (r.isForMainFrame() && v == web) { pageHost = baseHost(host); pageFlags = Filters.pageFlags(u.toString(), host); }
-                if (host != null && !r.isForMainFrame() && !isStealth()) {
+                if (host != null && !r.isForMainFrame()) {
                     int c = Rules.check(host);
                     if (c == Rules.BLOCK_LIST || c == Rules.BLOCK_CUSTOM) {
                         blockedHere++;
+                        // 🥷 stealth: the site must believe its ads loaded, so answer "OK" with harmless empty content
+                        // (letting it go out would fail at our DNS and the site would notice)
+                        if (isStealth()) return stub(u, r);
                         String pth = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
                         boolean critical = pth.endsWith("adsbygoogle.js") || pth.contains("show_ads") || pth.contains("gpt.js") || pth.contains("pubads_impl");
                         // With the VPN on, let the request go out: our DNS answers 0.0.0.0 so it truly fails (like a real blocker).
@@ -1202,7 +1205,7 @@ public class BrowserActivity extends Activity {
                     }
                 }
                 // full filter lists (EasyList & co): paths, scripts, trackers served from any domain
-                if (host != null && !r.isForMainFrame() && !isStealth() && (pageFlags & 1) == 0) {
+                if (host != null && !r.isForMainFrame() && (pageFlags & 1) == 0) {
                     String pth0 = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
                     if (Filters.shouldBlock(u.toString(), host, v == web ? pageHost : null, reqType(r, pth0))) {
                         blockedHere++;
