@@ -284,6 +284,7 @@
     if (cmd === 'reader') return TOP ? reader() : 0;
     if (cmd === 'nextep') return TOP ? offerNext(false) : 0;
     if (cmd === 'gest') { window.__gest = !!a; return 1; }
+    if (cmd === 'dtap') { window.__dtap = !!a; return 1; }
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
     if (cmd === 'pause') { document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); return 1; }
     if (cmd === 'intro') { window.__intro = a; return 1; }
@@ -394,7 +395,7 @@
     if (vw) { vw = false; sx = null; bubT = setTimeout(function () { if (bub) bub.style.display = 'none'; }, 700); return; }
     if (sx !== null && !sw) {
       var v = mainVideo(), now = Date.now();
-      if (window.__gest && v && now - lastTap < 320 && Math.abs(tapX - lastX) < 60) {
+      if (window.__dtap !== false && v && now - lastTap < 320 && Math.abs(tapX - lastX) < 60) {
         var r = v.getBoundingClientRect(), rel = (tapX - r.left) / r.width;
         if (rel < 0.33) { window.__seek(-10); bubble('⏪ 10'); }
         else if (rel > 0.67) { window.__seek(10); bubble('⏩ 10'); }

@@ -230,6 +230,7 @@ public class BrowserActivity extends Activity {
     String pre(String host) {
         return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn()
             + ";window.__gest=" + getSharedPreferences("b", 0).getBoolean("gest", false)
+            + ";window.__dtap=" + getSharedPreferences("b", 0).getBoolean("dtap", true)
             + ";window.__autonext=" + getSharedPreferences("b", 0).getBoolean("autonext", true)
             + ";window.__dark=" + darkOn() + ";window.__intro=" + introFor(pageHost) + ";window.__cine=" + (zoomMode > 0 || customView != null) + ";";
     }
@@ -1499,7 +1500,8 @@ public class BrowserActivity extends Activity {
             "🌙 الوضع الليلي للمواقع: " + (darkOn() ? "شغّال ✅" : "طافي"),
             "⏲️ مؤقت النوم" + (sleepAtEnd || sleepAt > 0 ? " ✅" : ""),
             "⏭️ تخطّي المقدمة لهالموقع" + (introFor(pageHost) > 0 ? " (" + tfmt(introFor(pageHost)) + ")" : ""),
-            "👆 التقديم بالسحب والضغطتين على الفيديو: " + (getSharedPreferences("b", 0).getBoolean("gest", false) ? "شغّال ✅" : "طافي"),
+            "👆👆 ضغطتين على الفيديو (⏪10 / ⏯ / ⏩10): " + (getSharedPreferences("b", 0).getBoolean("dtap", true) ? "شغّال ✅" : "طافي"),
+            "👉 التقديم بالسحب يمين ويسار: " + (getSharedPreferences("b", 0).getBoolean("gest", false) ? "شغّال ✅" : "طافي"),
             "⏭️ الحلقة الجاية",
             "▶️ الحلقة الجاية تبدا بروحها: " + (getSharedPreferences("b", 0).getBoolean("autonext", true) ? "شغّال ✅" : "طافي"),
             "🧹 امسح السجل لما أسكّر المتصفح: " + (wipeOn() ? "شغّال ✅" : "طافي"),
@@ -1530,7 +1532,9 @@ public class BrowserActivity extends Activity {
             else if (it.startsWith("🌙")) { bp.edit().putBoolean("dark", !darkOn()).apply(); toast(darkOn() ? "🌙 الوضع الليلي شغّال" : "انطفى الوضع الليلي"); for (Tab t : tabs) if (t.view != null) t.view.reload(); }
             else if (it.startsWith("⏲️")) sleepDialog();
             else if (it.startsWith("⏭️")) introDialog();
-            else if (it.startsWith("👆")) { boolean on = !bp.getBoolean("gest", false); bp.edit().putBoolean("gest", on).apply(); toast(on ? "👆 السحب والضغطتين للتقديم شغّالة" : "انطفى التقديم بالسحب • استخدم شريط الوقت"); for (Tab t : tabs) if (t.view != null) t.view.evaluateJavascript("window.__gest=" + on + ";window.__cmd&&__cmd('gest'," + on + ")", null); }
+            else if (it.startsWith("👆👆")) { boolean on = !bp.getBoolean("dtap", true); bp.edit().putBoolean("dtap", on).apply(); toast(on ? "👆👆 الضغطتين شغّالة" : "انطفت الضغطتين");
+                for (Tab t : tabs) if (t.view != null) t.view.evaluateJavascript("window.__dtap=" + on + ";window.__cmd&&__cmd('dtap'," + on + ")", null); }
+            else if (it.startsWith("👉")) { boolean on = !bp.getBoolean("gest", false); bp.edit().putBoolean("gest", on).apply(); toast(on ? "👉 التقديم بالسحب شغّال" : "انطفى التقديم بالسحب"); for (Tab t : tabs) if (t.view != null) t.view.evaluateJavascript("window.__gest=" + on + ";window.__cmd&&__cmd('gest'," + on + ")", null); }
             else if (it.startsWith("⏭️ الحلقة")) web.evaluateJavascript("window.__cmd?__cmd('nextep',0):0", new ValueCallback<String>() { public void onReceiveValue(String v) { if (!"1".equals(v)) toast("ما لقيت الحلقة الجاية في هالصفحة"); } });
             else if (it.startsWith("▶️ الحلقة")) { boolean on = !bp.getBoolean("autonext", true); bp.edit().putBoolean("autonext", on).apply(); toast(on ? "▶️ لما تخلص الحلقة تبدا اللي بعدها" : "انطفى التشغيل التلقائي"); }
             else if (it.startsWith("🧹 امسح السجل")) { bp.edit().putBoolean("wipe", !wipeOn()).apply(); toast(wipeOn() ? "🧹 بيمسح السجل والكوكيز كل ما تسكّر المتصفح" : "انطفى المسح التلقائي"); }
