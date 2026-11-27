@@ -64,7 +64,14 @@ public class Rules {
 
     /** Clean a user/list entry into a bare domain, or null. */
     public static String clean(String line) {
+        // Adblock-syntax lines that are NOT domain blocks. Must be checked before "#" is treated as a comment:
+        // "google.com##.ad" means "hide .ad on google.com", not "block google.com".
+        if (line.contains("##") || line.contains("#@#") || line.contains("#?#") || line.contains("#$#") || line.contains("#%#")
+            || line.contains("#+js") || line.contains("#@?#") || line.contains("#@$#")) return null;
+        String tl = line.trim();
+        if (tl.startsWith("!") || tl.startsWith("@@") || tl.startsWith("[") || tl.indexOf('$') >= 0) return null;
         int hashPos = line.indexOf('#');
+        if (hashPos > 0 && !Character.isWhitespace(line.charAt(hashPos - 1))) return null;   // "#" glued to text = not a comment
         if (hashPos >= 0) line = line.substring(0, hashPos);
         line = line.trim();
         if (line.isEmpty() || line.startsWith("!") || line.startsWith("[")) return null;
