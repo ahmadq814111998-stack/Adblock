@@ -664,9 +664,10 @@ public class BrowserActivity extends Activity {
             row.addView(dur);
             bar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
                 public void onProgressChanged(SeekBar b, int p, boolean user) { if (user) cur.setText(tfmt(p)); }
-                public void onStartTrackingTouch(SeekBar b) { dragging = true; }
+                public void onStartTrackingTouch(SeekBar b) { dragging = true; h.removeCallbacks(hideCtl); }
                 public void onStopTrackingTouch(SeekBar b) {
                     dragging = false;
+                    h.removeCallbacks(hideCtl); h.postDelayed(hideCtl, 3500);
                     web.evaluateJavascript("window.__cmd&&__cmd('seekto'," + b.getProgress() + ")", null);
                 }
             });
@@ -718,7 +719,7 @@ public class BrowserActivity extends Activity {
                     resume(t, d);
                     seekA.set(t, d); seekB.set(t, d);
                     seekA.row.setVisibility(View.VISIBLE);
-                    seekB.row.setVisibility(zoomMode > 0 || customView != null ? View.VISIBLE : View.GONE);
+                    seekB.row.setVisibility(cinema() && ctlShown ? View.VISIBLE : View.GONE);
                 } catch (Exception e) { }
             }});
         } else seekB.row.setVisibility(View.GONE);
@@ -1311,9 +1312,34 @@ public class BrowserActivity extends Activity {
         setZoom(0);
     }
 
+    // ---------- cinema controls: hidden until you tap, hide again after a few seconds ----------
+    boolean ctlShown = false;
+    final Runnable hideCtl = new Runnable() { public void run() {
+        if (zoomMode > 0 || customView != null) {
+            ctlShown = false;
+            overlay.setVisibility(View.GONE);
+            seekB.row.setVisibility(View.GONE);
+        }
+    }};
+
+    boolean cinema() { return zoomMode > 0 || customView != null; }
+
     void showOverlay() {
+        ctlShown = true;
         overlay.setVisibility(View.VISIBLE);
         overlay.bringToFront();
+        if (seekB != null) seekB.row.bringToFront();
+        h.removeCallbacks(hideCtl);
+        h.postDelayed(hideCtl, 3500);
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(android.view.MotionEvent e) {
+        if (cinema() && e.getActionMasked() == android.view.MotionEvent.ACTION_DOWN) {
+            if (!ctlShown) showOverlay();
+            else { h.removeCallbacks(hideCtl); h.postDelayed(hideCtl, 3500); }
+        }
+        return super.dispatchTouchEvent(e);
     }
 
     void immersive(boolean on) {
