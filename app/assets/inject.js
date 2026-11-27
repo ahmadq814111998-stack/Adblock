@@ -3,6 +3,7 @@
   window.__m = 1;
   window.__mrate = window.__mrate || 1;
   var STEALTH = !!window.__stealth;
+  var OFF = !!window.__off;
   try {
     var _as = Element.prototype.attachShadow;
     if (_as && !_as.__m) {
@@ -65,6 +66,7 @@
     + "{display:none!important}";
   if (window.__dark && TOP) css += "html{filter:invert(.92) hue-rotate(180deg)!important;background:#fff!important}"
     + "img,video,picture,canvas,iframe,svg image,[style*='background-image']{filter:invert(1) hue-rotate(180deg)!important}";
+  if (OFF) { css = ''; window.__cos = ''; }
   if (window.__cos) try {
     var cs2 = document.createElement('style');
     cs2.id = '__mcos';
@@ -594,6 +596,7 @@
   }
   var reported = false, removed = 0;
   function checkWalls() {
+    if (OFF) return;
     var w = walls();
     if (!w.length) return;
     if (STEALTH) {
@@ -811,11 +814,11 @@
   var n = 0;
   setInterval(function () {
     n++;
-    skipAds(false);
+    if (!OFF) skipAds(false);
     if (!TOP) { var vi = info(); if (vi) try { parent.postMessage({ __mi: vi }, '*'); } catch (e) {} }
     var now = Date.now();
     var tiny = !!window.__mpip;   // picture-in-picture: skip the heavy clean-up scans
-    if (!tiny && ((dirty && now - lastHeavy > 1200) || now - lastHeavy > 6000)) {
+    if (!tiny && !OFF && ((dirty && now - lastHeavy > 1200) || now - lastHeavy > 6000)) {
       dirty = false; lastHeavy = now;
       try { lures(); } catch (e) {}
       try { frameLures(); } catch (e) {}

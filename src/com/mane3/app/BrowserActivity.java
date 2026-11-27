@@ -244,7 +244,7 @@ public class BrowserActivity extends Activity {
     }
 
     String pre(String host) {
-        return "window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn()
+        return "window.__off=" + isOff() + ";window.__stealth=" + isStealth() + ";window.__zr=" + zapJson(host) + ";window.__wf=" + wfJson() + ";window.__bg=" + bgOn()
             + ";window.__gest=" + getSharedPreferences("b", 0).getBoolean("gest", false)
             + ";window.__dtap=" + getSharedPreferences("b", 0).getBoolean("dtap", true)
             + ";window.__autonext=" + getSharedPreferences("b", 0).getBoolean("autonext", true)
@@ -868,7 +868,26 @@ public class BrowserActivity extends Activity {
         return h;
     }
 
-    boolean isStealth() { return stealth.contains(pageHost); }
+    boolean isStealth() { return stealth.contains(pageHost) || isOff(); }
+
+    /** ⏸ Mane3 fully off for this site (no blocking, no cleaning, ads open) – for players that only work without a blocker. */
+    boolean isOff() { return offSites().contains(pageHost); }
+    Set<String> offSites() { return getSharedPreferences("b", 0).getStringSet("off", new HashSet<String>()); }
+
+    void toggleOff() {
+        if (pageHost.isEmpty()) return;
+        final Set<String> s = new HashSet<>(offSites());
+        final boolean nowOff = !s.contains(pageHost);
+        Runnable go = new Runnable() { public void run() {
+            if (nowOff) s.add(pageHost); else s.remove(pageHost);
+            getSharedPreferences("b", 0).edit().putStringSet("off", s).apply();
+            updateShield();
+            toast(nowOff ? "⏸ مانع موقف لـ " + pageHost + " • باقي المواقع محمية" : "▶ رجع المانع لـ " + pageHost);
+            AdVpn.dnsOpenUntil = nowOff ? System.currentTimeMillis() + 5000 : 0;
+            h.postDelayed(new Runnable() { public void run() { web.reload(); } }, nowOff ? 1500 : 0);
+        }};
+        if (nowOff) PinLock.ask(this, "إيقاف المانع لهالموقع", go); else go.run();
+    }
 
     void setStealth(String host, boolean on) {
         if (on) stealth.add(host); else stealth.remove(host);
@@ -1190,6 +1209,11 @@ public class BrowserActivity extends Activity {
                 Uri u = r.getUrl();
                 String host = u.getHost();
                 if (r.isForMainFrame() && v == web) { pageHost = baseHost(host); pageFlags = Filters.pageFlags(u.toString(), host); }
+                if (isOff() && v == web) {   // ⏸ fully off: hands off every request (only note videos for the panel)
+                    String po = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
+                    if (po.endsWith(".mp4") || po.endsWith(".m3u8") || po.endsWith(".webm")) addMedia(u.toString(), null);
+                    return null;
+                }
                 if (host != null && !r.isForMainFrame()) {
                     int c = Rules.check(host);
                     if (c == Rules.BLOCK_LIST || c == Rules.BLOCK_CUSTOM) {
@@ -1742,7 +1766,7 @@ public class BrowserActivity extends Activity {
     // ---------- inject our script into player iframes (they're on other sites) ----------
     static final String FRAME_PRE = "window.__frame=1;(function(){var f=function(){return{closed:false,close:function(){},focus:function(){},blur:function(){},postMessage:function(){},"
         + "document:{write:function(){},writeln:function(){},close:function(){},open:function(){}},location:{href:'',replace:function(){},assign:function(){}}}};"
-        + "try{Object.defineProperty(window,'open',{value:f,writable:false,configurable:false})}catch(e){window.open=f}})();";
+        + "try{window.open=f}catch(e){}})();";
 
     static boolean skipFrame(String u) {
         String l = u.toLowerCase(Locale.ROOT);
@@ -1908,7 +1932,7 @@ public class BrowserActivity extends Activity {
 
     void updateShield() {
         int n = popsBlocked + blockedHere + skippedHere;
-        bShield.setText((isStealth() ? "🥷" : "🛡️") + (n > 0 ? String.valueOf(n) : ""));
+        bShield.setText((isOff() ? "⏸" : isStealth() ? "🥷" : "🛡️") + (n > 0 && !isOff() ? String.valueOf(n) : ""));
     }
 
     void hls(String u) {
@@ -1989,7 +2013,8 @@ public class BrowserActivity extends Activity {
         items.add("🎯 امسح دعاية بإصبعك");
         items.add("🧹 شيل رسالة «انتباه» الحين");
         if (!rb.isEmpty()) items.add("📋 اللي انمنع (" + rb.size() + ")");
-        items.add(st ? "🛡️ رجّع المنع العادي" : "🥷 الوضع الخفي (إذا قال طفّ المانع)");
+        if (!isOff()) items.add(stealth.contains(pageHost) ? "🛡️ رجّع المنع العادي" : "🥷 الوضع الخفي (إذا قال طفّ المانع)");
+        items.add(isOff() ? "▶ رجّع المانع لهالموقع" : "⏸ وقّف المانع لهالموقع (إذا المشغّل ما اشتغل)");
         if (!zh.isEmpty()) items.add("↩️ رجّع اللي مسحته في هالموقع");
         String title = (pageHost.isEmpty() ? "المانع" : pageHost) + "\n🚫 " + (blockedHere + popsBlocked) + " انمنع  •  ⏭️ " + skippedHere + " دعاية فيديو";
         new AlertDialog.Builder(this).setTitle(title).setItems(items.toArray(new String[0]), new android.content.DialogInterface.OnClickListener() {
@@ -2005,6 +2030,7 @@ public class BrowserActivity extends Activity {
                     e.remove("p:" + pageHost).apply();
                     toast("رجّعت كل شي"); web.reload();
                 }
+                else if (it.startsWith("⏸") || it.startsWith("▶ رجّع")) toggleOff();
                 else toggleStealth();
             }
         }).show();
