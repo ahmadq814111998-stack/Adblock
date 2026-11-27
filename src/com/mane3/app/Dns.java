@@ -60,7 +60,7 @@ public class Dns {
             r[o] = (byte) 0xC0; r[o + 1] = 12;          // name pointer
             r[o + 2] = 0; r[o + 3] = (byte) qtype;     // type
             r[o + 4] = 0; r[o + 5] = 1;                // class IN
-            r[o + 6] = 0; r[o + 7] = 0; r[o + 8] = 0; r[o + 9] = 60; // TTL
+            r[o + 6] = 0; r[o + 7] = 0; r[o + 8] = 0; r[o + 9] = 10; // TTL: short, so 🥷 stealth / allow-list changes apply fast
             r[o + 10] = 0; r[o + 11] = (byte) alen;    // rdlength, rdata = zeros
         }
         return r;

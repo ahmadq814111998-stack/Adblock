@@ -840,6 +840,7 @@ public class BrowserActivity extends Activity {
             }});
         } else seekB.row.setVisibility(View.GONE);
         if (bShield != null) updateShield();   // live count while the page keeps loading ads
+        if (isStealth() && (resumedNow || (playing && bgOn()))) AdVpn.dnsOpenUntil = System.currentTimeMillis() + 5000;
         h.postDelayed(this, 500);
     }};
     LinearLayout popbar;
@@ -1195,7 +1196,7 @@ public class BrowserActivity extends Activity {
                         blockedHere++;
                         // 🥷 stealth: the site must believe its ads loaded, so answer "OK" with harmless empty content
                         // (letting it go out would fail at our DNS and the site would notice)
-                        if (isStealth()) return stub(u, r);
+                        if (isStealth()) return AdVpn.running && AdVpn.pausedFor == null && System.currentTimeMillis() < AdVpn.dnsOpenUntil ? null : stub(u, r);
                         String pth = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
                         boolean critical = pth.endsWith("adsbygoogle.js") || pth.contains("show_ads") || pth.contains("gpt.js") || pth.contains("pubads_impl");
                         // With the VPN on, let the request go out: our DNS answers 0.0.0.0 so it truly fails (like a real blocker).
@@ -1205,7 +1206,7 @@ public class BrowserActivity extends Activity {
                     }
                 }
                 // full filter lists (EasyList & co): paths, scripts, trackers served from any domain
-                if (host != null && !r.isForMainFrame() && (pageFlags & 1) == 0) {
+                if (host != null && !r.isForMainFrame() && (pageFlags & 1) == 0 && !isStealth()) {
                     String pth0 = u.getPath() == null ? "" : u.getPath().toLowerCase(Locale.ROOT);
                     if (Filters.shouldBlock(u.toString(), host, v == web ? pageHost : null, reqType(r, pth0))) {
                         blockedHere++;
@@ -2095,12 +2096,14 @@ public class BrowserActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle o) { super.onSaveInstanceState(o); web.saveState(o); }
     @Override protected void onPause() {
         super.onPause();
+        resumedNow = false;
         if (playing && bgOn()) web.evaluateJavascript("window.__cmd&&__cmd('bgstate',1)", null);
         persistTabs();
         boolean keep = (playing && bgOn()) || (Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode());
         if (!keep) web.onPause();
     }
-    @Override protected void onResume() { super.onResume(); web.onResume(); web.evaluateJavascript("window.__cmd&&__cmd('bgstate',0)", null); checkLock(); }
+    volatile boolean resumedNow = false;
+    @Override protected void onResume() { super.onResume(); resumedNow = true; web.onResume(); web.evaluateJavascript("window.__cmd&&__cmd('bgstate',0)", null); checkLock(); }
 
     @Override protected void onStop() {
         super.onStop();

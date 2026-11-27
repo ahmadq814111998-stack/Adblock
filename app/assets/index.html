@@ -233,7 +233,7 @@ function renderLists(){
   '<div class="sw '+(x.on?'on':'')+'" onclick="listToggle(\''+x.id+'\','+(!x.on)+')"></div></div>'});
  $('lists').innerHTML=h+'</div>';
 }
-var ST={bt:['#A855F7','مقفول (وقت التقفيل) ⏰'],b:['#EF4444','ممنوع (القوائم)'],bc:['#EF4444','ممنوع (أنت)'],bs:['#F59E0B','ممنوع (السيرفر)'],a:['#22C55E','مسموح'],ac:['#22C55E','مسموح (أنت)']};
+var ST={ao:['#38BDF8','مسموح مؤقتاً (موقع بالوضع الخفي 🥷)'],bt:['#A855F7','مقفول (وقت التقفيل) ⏰'],b:['#EF4444','ممنوع (القوائم)'],bc:['#EF4444','ممنوع (أنت)'],bs:['#F59E0B','ممنوع (السيرفر)'],a:['#22C55E','مسموح'],ac:['#22C55E','مسموح (أنت)']};
 function renderLog(){
  var q=$('lq').value.trim().toLowerCase(),l=J(M.log(lf))||[],h='';
  l.forEach(function(e){if(q&&e[1].indexOf(q)<0)return;var s=ST[e[2]]||ST.a;

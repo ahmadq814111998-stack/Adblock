@@ -338,6 +338,15 @@ public class AdVpn extends VpnService implements Runnable {
                 return;
             }
             total.incrementAndGet();
+            if (System.currentTimeMillis() < dnsOpenUntil && !Schedule.blocks(this, q.name)) {
+                // 🥷 a stealth site is open in the browser: let its ads load for real (kept off-screen there), no cache either way
+                byte[] open = forwardTo(q.dns, OPEN_UPSTREAM);
+                if (open == null) return;
+                log(q.name, "ao");
+                byte[] resp0 = Dns.wrap(q, open);
+                synchronized (this) { if (out != null && running) out.write(resp0); }
+                return;
+            }
             int r = Rules.check(q.name);
             byte[] answer;
             if (Schedule.blocks(this, q.name)) {
@@ -402,8 +411,14 @@ public class AdVpn extends VpnService implements Runnable {
         return false;
     }
 
-    byte[] forward(byte[] dns) {
-        for (String up : upstream) {
+    /** Set by the browser while a 🥷 stealth page is in front (refreshed every half second, expires on its own). */
+    public static volatile long dnsOpenUntil = 0;
+    static final String[] OPEN_UPSTREAM = {"1.1.1.1", "8.8.8.8"};
+
+    byte[] forward(byte[] dns) { return forwardTo(dns, upstream); }
+
+    byte[] forwardTo(byte[] dns, String[] ups) {
+        for (String up : ups) {
             DatagramSocket s = null;
             try {
                 s = new DatagramSocket();
