@@ -16,9 +16,26 @@
       Object.defineProperty(document, 'hidden', { get: function () { return false; }, configurable: true });
       Object.defineProperty(document, 'visibilityState', { get: function () { return 'visible'; }, configurable: true });
       Object.defineProperty(document, 'webkitHidden', { get: function () { return false; }, configurable: true });
-      document.addEventListener('visibilitychange', function (e) { e.stopImmediatePropagation(); }, true);
-      document.addEventListener('webkitvisibilitychange', function (e) { e.stopImmediatePropagation(); }, true);
-      window.addEventListener('blur', function (e) { e.stopImmediatePropagation(); }, true);
+      Object.defineProperty(document, 'webkitVisibilityState', { get: function () { return 'visible'; }, configurable: true });
+      document.hasFocus = function () { return true; };
+      // Capture on window runs before any listener on document, even ones the site added earlier.
+      var stop = function (e) { e.stopImmediatePropagation(); };
+      ['visibilitychange', 'webkitvisibilitychange', 'blur', 'pagehide', 'freeze'].forEach(function (ev) {
+        window.addEventListener(ev, stop, true);
+        document.addEventListener(ev, stop, true);
+      });
+      // If the site still pauses the video right after the screen went off, play it again (only when it was playing).
+      var wasPlaying = new WeakSet(), lastUser = 0;
+      ['touchstart', 'mousedown', 'keydown'].forEach(function (ev) { window.addEventListener(ev, function () { lastUser = Date.now(); }, true); });
+      document.addEventListener('play', function (e) { if (e.target && e.target.tagName) wasPlaying.add(e.target); }, true);
+      document.addEventListener('pause', function (e) {
+        var v = e.target;
+        if (!v || !wasPlaying.has(v) || v.ended) return;
+        if (Date.now() - lastUser < 1500) { wasPlaying.delete(v); return; }          // you paused it yourself
+        if (window.__mpaused) { wasPlaying.delete(v); return; }                     // paused by the app (sleep timer, ⏯)
+        if (!window.__mbg) return;                                                    // only while the app is in the background
+        setTimeout(function () { try { v.play(); } catch (x) {} }, 150);
+      }, true);
     } catch (e) {}
   }
   var TOP = (function () { try { return window.top === window; } catch (e) { return false; } })();
@@ -103,6 +120,7 @@
   };
   window.__pp = function () {
     var v = mainVideo(); if (!v) return 0;
+    window.__mpaused = true; setTimeout(function () { window.__mpaused = false; }, 1500);
     if (v.paused) v.play(); else v.pause();
     return 1;
   };
@@ -291,7 +309,8 @@
     if (cmd === 'gest') { window.__gest = !!a; return 1; }
     if (cmd === 'dtap') { window.__dtap = !!a; return 1; }
     if (cmd === 'cine') { window.__cine = !!a; return 1; }
-    if (cmd === 'pause') { document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); return 1; }
+    if (cmd === 'pause') { window.__mpaused = true; document.querySelectorAll('video,audio').forEach(function (x) { try { x.pause(); } catch (e) {} }); setTimeout(function () { window.__mpaused = false; }, 1500); return 1; }
+    if (cmd === 'bgstate') { window.__mbg = !!a; return 1; }
     if (cmd === 'intro') { window.__intro = a; return 1; }
     if (cmd === 'hush') { document.querySelectorAll('video,audio').forEach(function (v) { try { v.pause(); v.muted = true; } catch (e) {} }); return 1; }
     return 0;

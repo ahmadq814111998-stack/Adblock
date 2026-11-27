@@ -1,0 +1,6 @@
+<html><head><meta charset="utf-8"></head><body><video id="v" src="long.mp4" muted loop></video>
+<script>
+var v=document.getElementById('v');window.__sitePaused=0;
+document.addEventListener('visibilitychange',function(){ if(document.hidden){v.pause();window.__sitePaused++} },true);
+document.addEventListener('visibilitychange',function(){ if(document.visibilityState==='hidden'){v.pause();window.__sitePaused++} });
+</script></body></html>

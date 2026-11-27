@@ -1942,11 +1942,12 @@ public class BrowserActivity extends Activity {
     @Override protected void onSaveInstanceState(Bundle o) { super.onSaveInstanceState(o); web.saveState(o); }
     @Override protected void onPause() {
         super.onPause();
+        if (playing && bgOn()) web.evaluateJavascript("window.__cmd&&__cmd('bgstate',1)", null);
         persistTabs();
         boolean keep = (playing && bgOn()) || (Build.VERSION.SDK_INT >= 24 && isInPictureInPictureMode());
         if (!keep) web.onPause();
     }
-    @Override protected void onResume() { super.onResume(); web.onResume(); checkLock(); }
+    @Override protected void onResume() { super.onResume(); web.onResume(); web.evaluateJavascript("window.__cmd&&__cmd('bgstate',0)", null); checkLock(); }
 
     @Override protected void onStop() {
         super.onStop();
