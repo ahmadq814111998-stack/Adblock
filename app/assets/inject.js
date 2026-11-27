@@ -569,7 +569,15 @@
       if (cs.position !== 'fixed' && !(cs.position === 'absolute' && !TOP)) return;
       var r = e.getBoundingClientRect();
       var k = TOP ? 0.9 : 0.8, zmin = TOP ? 10 : 0;
-      if (r.width >= W * k && r.height >= H * k && (parseInt(cs.zIndex) || 0) > zmin && (e.innerText || '').trim().length < 40 && !e.querySelector('video')) out.push(e);
+      if (!(r.width >= W * k && r.height >= H * k && (parseInt(cs.zIndex) || 0) > zmin)) return;
+      // only an EMPTY see-through dark layer: never the player's own "tap to play" cover, poster or buttons
+      if ((e.innerText || '').trim().length > 0) return;
+      if (e.querySelector('video,img,svg,button,canvas,iframe,a') || e.tagName === 'IMG' || e.tagName === 'A') return;
+      if (cs.backgroundImage && cs.backgroundImage !== 'none') return;
+      var m = (cs.backgroundColor || '').match(/rgba?\(([^)]+)\)/), alpha = 1;
+      if (m) { var parts = m[1].split(','); alpha = parts.length > 3 ? parseFloat(parts[3]) : 1; }
+      var translucent = (alpha > 0.05 && alpha < 0.97) || parseFloat(cs.opacity) < 0.97 || (cs.backdropFilter && cs.backdropFilter !== 'none');
+      if (translucent) out.push(e);
     });
     return out;
   }
