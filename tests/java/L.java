@@ -1,0 +1,1 @@
+public class L { public static void main(String[] a) throws Exception { System.out.println(a[0]+" -> "+com.mane3.app.Dns.looksBlocked(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(a[0])))); }}

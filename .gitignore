@@ -1,0 +1,7 @@
+out/
+build/
+tools/
+release/
+*.apk
+!updates/Mane3.apk
+__pycache__/

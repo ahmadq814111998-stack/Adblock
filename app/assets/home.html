@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>متصفح مانع</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0B1220;color:#E6EDF7;font-family:system-ui,sans-serif;padding:36px 18px}
+h1{text-align:center;font-size:26px;margin:10px 0 4px}
+p{text-align:center;color:#8EA0BC;margin:0 0 22px;font-size:14px}
+form{display:flex;gap:8px;margin-bottom:26px}
+input{flex:1;padding:14px 16px;border-radius:26px;border:1px solid #22304A;background:#131C2E;color:#fff;font-size:16px}
+button{padding:0 20px;border-radius:26px;border:0;background:#0369A1;color:#fff;font-size:16px;font-weight:700}
+.g{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.g a{display:flex;flex-direction:column;align-items:center;gap:6px;color:#CBD5E1;text-decoration:none;font-size:12px}
+.g a span{width:56px;height:56px;border-radius:18px;background:#131C2E;border:1px solid #22304A;display:flex;align-items:center;justify-content:center;font-size:26px}
+.sec{font-size:15px;color:#38BDF8;margin:22px 4px 10px}
+.li{display:flex;align-items:center;gap:10px;background:#131C2E;border:1px solid #22304A;border-radius:14px;padding:12px 14px;margin:8px 0;color:#E6EDF7;text-decoration:none}
+.li b{flex:1;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.li span{color:#4ADE80;font-size:13px;direction:ltr}
+.tips{margin-top:28px;background:#131C2E;border:1px solid #22304A;border-radius:16px;padding:14px;color:#8EA0BC;font-size:13px;line-height:1.9}
+.tips b{color:#E6EDF7}
+</style>
+</head>
+<body>
+<h1>🌐 متصفح مانع</h1>
+<p>بدون دعايات • تحميل • تسريع • تكبير • تلفزيون</p>
+<form onsubmit="var q=document.getElementById('q').value.trim();if(q)location.href=(/^https?:\/\//.test(q)?q:(/^[^\s]+\.[^\s]{2,}$/.test(q)?'https://'+q:'https://www.google.com/search?q='+encodeURIComponent(q)));return false">
+  <input id="q" placeholder="ابحث في جوجل أو اكتب رابط" autocomplete="off"><button>بحث</button>
+</form>
+<div id="cont"></div>
+<div id="bms"></div>
+<h3 class="sec">🔗 مواقع</h3>
+<div class="g">
+  <a href="https://www.google.com"><span>🔎</span>Google</a>
+  <a href="https://m.youtube.com"><span>▶️</span>YouTube</a>
+  <a href="https://www.kooora.com"><span>⚽</span>كووورة</a>
+  <a href="https://x.com"><span>𝕏</span>X</a>
+  <a href="https://www.instagram.com"><span>📸</span>Instagram</a>
+  <a href="https://www.tiktok.com"><span>🎵</span>TikTok</a>
+  <a href="https://www.snapchat.com"><span>👻</span>Snapchat</a>
+  <a href="https://www.reddit.com"><span>👽</span>Reddit</a>
+  <a href="https://www.alanba.com.kw"><span>📰</span>الأنباء</a>
+  <a href="https://www.alqabas.com"><span>🗞️</span>القبس</a>
+  <a href="https://www.accuweather.com"><span>🌤️</span>الطقس</a>
+  <a href="https://adblock.turtlecute.org"><span>🧪</span>فحص المانع</a>
+</div>
+<div class="tips">
+<b>⚡ السرعة:</b> شغّل الفيديو واضغط ⚡ تحت (من 0.25x لين 4x).<br>
+<b>⛶ التكبير:</b> وضع السينما يخلي الفيديو يملا الشاشة، وتقدر تكبّره 1.3x و 1.6x. وتقدر تقرّب أي صفحة بإصبعين.<br>
+<b>📥 التحميل:</b> شغّل الفيديو، والرقم الأخضر على 📥 يعني لقى فيديو. واضغط ضغطة طويلة على أي رابط أو صورة.<br>
+<b>📺 التلفزيون:</b> اضغط 📺 واختار التلفزيون، ولازم يكون على نفس الواي فاي.<br>
+<b>🖼️ النافذة الصغيرة:</b> وانت تشوف فيديو، اطلع من المتصفح، والفيديو بيكمّل في نافذة صغيرة فوق البرامج.<br>
+<b>🎧 الصوت بالخلفية:</b> تقدر تقفل الشاشة والصوت يكمّل.<br>
+<b>⧉ التبويبات و⭐ المفضلة:</b> من فوق ومن ⋮.
+</div>
+<script>
+(function(){
+  function esc(x){return String(x).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+  var d={};try{d=JSON.parse(MB.home())}catch(e){}
+  if(d.cont&&d.cont.length){document.getElementById('cont').innerHTML='<h3 class="sec">▶ كمّل المشاهدة</h3>'+d.cont.map(function(x){return '<a class="li" href="'+esc(x.u)+'"><b>'+esc(x.t)+'</b><span>⏱ '+esc(x.p)+'</span></a>'}).join('')}
+  if(d.bm&&d.bm.length){document.getElementById('bms').innerHTML='<h3 class="sec">⭐ المفضلة</h3>'+d.bm.map(function(x){return '<a class="li" href="'+esc(x.u)+'"><b>⭐ '+esc(x.t)+'</b></a>'}).join('')}
+})();
+</script>
+</body>
+</html>

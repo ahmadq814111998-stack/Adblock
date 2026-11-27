@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>مانع</title>
+<style>
+:root{--bg:#0B1220;--card:#131C2E;--line:#22304A;--txt:#E6EDF7;--mut:#8EA0BC;--ok:#22C55E;--bad:#EF4444;--acc:#38BDF8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,"Noto Sans Arabic",sans-serif;font-size:15px;padding-bottom:84px}
+header{padding:16px 18px 6px;display:flex;align-items:center;gap:10px}
+header h1{font-size:22px;margin:0;flex:1}
+.pill{font-size:12px;padding:4px 10px;border-radius:99px;background:var(--card);color:var(--mut)}
+.page{display:none;padding:8px 14px}.page.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin:10px 0}
+.big{width:210px;height:210px;border-radius:50%;margin:24px auto 14px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;font-weight:800;border:7px solid #334155;background:#1E293B;transition:.25s;user-select:none}
+.big.on{background:#15803D;border-color:#4ADE80;box-shadow:0 0 50px #22C55E55}
+.big small{font-size:14px;font-weight:500;opacity:.85;margin-top:4px}
+.st{text-align:center;font-size:19px;font-weight:700}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.num{font-size:24px;font-weight:800}.lbl{color:var(--mut);font-size:13px}
+.row{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row .t{flex:1;min-width:0}.row .t b{display:block}.row .t span{color:var(--mut);font-size:13px}
+.sw{width:50px;height:30px;border-radius:99px;background:#334155;position:relative;flex:none;transition:.2s}
+.sw:after{content:"";position:absolute;top:3px;right:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s}
+.sw.on{background:var(--ok)}.sw.on:after{right:23px}
+h3{margin:18px 4px 4px;font-size:15px;color:var(--acc)}
+.btn{display:block;width:100%;padding:14px;border-radius:14px;border:0;background:#1E3A5F;color:#fff;font-size:15px;font-weight:700;margin:8px 0;font-family:inherit}
+.btn.g{background:#15803D}.btn.r{background:#7F1D1D}.btn.s{background:#334155}
+input{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:#0E1626;color:var(--txt);font-size:15px;font-family:inherit;direction:ltr;text-align:left}
+.log{font-family:ui-monospace,monospace;font-size:13px;direction:ltr;text-align:left}
+.lg{display:flex;gap:8px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--line)}
+.dot{width:9px;height:9px;border-radius:50%;flex:none}
+.lg .d{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg .tm{color:var(--mut);font-size:11px}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:4px 0}
+.chip{padding:7px 13px;border-radius:99px;background:var(--card);border:1px solid var(--line);white-space:nowrap;font-size:13px}
+.chip.on{background:var(--acc);color:#001;border-color:var(--acc)}
+nav{position:fixed;bottom:0;left:0;right:0;background:#0E1626;border-top:1px solid var(--line);display:flex;padding:6px 0 10px}
+nav a{flex:1;text-align:center;font-size:11px;color:var(--mut);padding:4px 0}
+nav a i{display:block;font-style:normal;font-size:21px}
+nav a.on{color:var(--acc)}
+.sheet{position:fixed;inset:0;background:#000A;display:none;align-items:flex-end;z-index:9}
+.sheet.on{display:flex}
+.sheet .in{background:var(--card);width:100%;border-radius:20px 20px 0 0;padding:18px 16px 26px}
+.tag{font-size:11px;padding:2px 8px;border-radius:99px;background:#1E293B;color:var(--mut)}
+.busy{background:#1E3A5F;color:#BAE6FD;padding:10px 14px;border-radius:12px;margin:8px 0;display:none;font-size:14px}
+.note{color:var(--mut);font-size:13px;line-height:1.8}
+.x{color:var(--bad);font-size:20px;padding:0 6px}
+</style>
+</head>
+<body>
+<header><h1>🛡️ مانع</h1><span class="pill" id="srv"></span></header>
+<div class="busy" id="busy" style="margin:0 14px"></div>
+
+<!-- HOME -->
+<section class="page on" id="p-home">
+  <div class="card" id="updBox" style="display:none;border-color:#38BDF8;background:#0C2A44"></div>
+  <div class="big" id="big" onclick="bigToggle()"><span id="bigT">شغّل</span><small id="bigS"></small></div>
+  <div class="st" id="st"></div>
+  <button class="btn" style="background:#0369A1;font-size:17px;margin-top:14px" onclick="M.browser()">🌐 افتح متصفح مانع</button>
+  <div class="card"><div class="row" style="padding:0"><div class="t"><b>🧼 الوضع النظيف</b><span>يمنع المواقع الإباحية والقمار، ويجبر جوجل ويوتيوب على البحث الآمن</span></div><div class="sw" id="cleanSw" onclick="cleanToggle(this)"></div></div></div>
+  <div class="card" id="statCard"></div>
+  <div class="grid">
+    <div class="card"><div class="num" id="nB">0</div><div class="lbl">انمنع الحين</div></div>
+    <div class="card"><div class="num" id="nT">0</div><div class="lbl">كل الطلبات</div></div>
+    <div class="card"><div class="num" id="nA">0</div><div class="lbl">انمنع من البداية</div></div>
+    <div class="card"><div class="num" id="nR">0</div><div class="lbl">موقع بالقوائم</div></div>
+  </div>
+  <div class="card">
+    <b>🧪 جرّب المانع</b>
+    <div class="note">يفحص دعايات معروفة (جوجل، الألعاب، فيسبوك…) ويقول لك كم وحدة انمنعت.</div>
+    <button class="btn g" onclick="runTest()">▶️ افحص الحين</button>
+    <div id="tRes"></div>
+    <div class="note" style="margin-top:10px">أو افتح موقع فيه دعايات وقارن والمانع شغّال وطافي:</div>
+    <button class="btn s" onclick="M.open('https://adblock.turtlecute.org/')">🧪 موقع فحص المانع (شوف قسم Hosts بس)</button>
+    <button class="btn s" onclick="M.open('https://www.kooora.com/')">⚽ كووورة</button>
+    <button class="btn s" onclick="M.open('https://www.accuweather.com/')">🌤️ AccuWeather</button>
+    <button class="btn s" onclick="M.open('https://www.speedtest.net/')">📶 Speedtest</button>
+  </div>
+  <div class="card">
+    <b>جرّب موقع</b>
+    <div style="display:flex;gap:8px;margin-top:8px"><input id="tst" placeholder="ads.example.com"><button class="btn s" style="width:90px;margin:0" onclick="doTest()">افحص</button></div>
+    <div id="tstR" style="margin-top:8px"></div>
+  </div>
+  <button class="btn s" onclick="M.vpnSettings()">⚙️ تشغيل دائم (VPN دائم التشغيل)</button>
+  <div class="card note">
+    • يمنع الدعايات والمتتبّعات والمواقع الضارة في الألعاب والبرامج والمتصفح، على الواي فاي والبيانات.<br>
+    • عشان يشتغل لحاله بعد الريستارت: «تشغيل دائم»، اختار «مانع»، وفعّل «VPN دائم التشغيل».<br>
+    • إذا «DNS الخاص» مفعّل في الإعدادات، خلّه «تلقائي».<br>
+    • دعايات يوتيوب اللي داخل الفيديو ما تنمنع بهالطريقة.<br>
+    • البنوك اللي تقول <span dir="ltr">VPN detected</span>: فعّلها في تبويب «البرامج»، والمانع يوقف لحاله لما تفتحها.<br>
+    • Survivor.io: دعايات المكافآت بتوقف. إذا تبيها، فعّل اللعبة من تبويب «البرامج».
+  </div>
+</section>
+
+<!-- LISTS -->
+<section class="page" id="p-lists">
+  <div id="lists"></div>
+  <button class="btn" onclick="M.updateAll();later()">🔄 حدّث كل القوائم الحين</button>
+  <div class="note" id="upd" style="text-align:center"></div>
+</section>
+
+<!-- LOG -->
+<section class="page" id="p-log">
+  <div class="chips" id="lchips">
+    <span class="chip on" data-f="">الكل</span><span class="chip" data-f="blocked">الممنوع</span><span class="chip" data-f="allowed">المسموح</span>
+  </div>
+  <input id="lq" placeholder="ابحث عن موقع…" oninput="renderLog()">
+  <div class="note" style="margin:6px 2px">اضغط على أي موقع عشان تمنعه أو تسمح له. 🔴 ممنوع • 🟠 ممنوع من السيرفر • 🟢 مسموح</div>
+  <div class="card log" id="log"></div>
+</section>
+
+<!-- CUSTOM -->
+<section class="page" id="p-mine">
+  <h3>⛔ مواقع أمنعها بنفسي</h3>
+  <div class="card">
+    <div style="display:flex;gap:8px"><input id="addB" placeholder="example.com"><button class="btn r" style="width:80px;margin:0" onclick="addC('block','addB')">امنع</button></div>
+    <div id="lB"></div>
+  </div>
+  <h3>✅ مواقع مسموحة دايماً</h3>
+  <div class="card">
+    <div style="display:flex;gap:8px"><input id="addA" placeholder="example.com"><button class="btn g" style="width:80px;margin:0" onclick="addC('allow','addA')">اسمح</button></div>
+    <div id="lA"></div>
+  </div>
+  <div class="note">منع موقع يمنع كل اللي تحته بعد، مثلاً منع <span dir="ltr">x.com</span> يمنع <span dir="ltr">ads.x.com</span>. والمسموح يتقدّم على كل القوائم.</div>
+</section>
+
+<!-- APPS -->
+<section class="page" id="p-apps">
+  <div class="card note" style="line-height:1.9">⏸ <b style="color:#E6EDF7">البرامج اللي تفعّلها هني، المانع يوقف لحاله لما تفتحها، ويرجع يشتغل أول ما تطلع منها.</b><br>
+  • حطها للبنوك وأي برنامج يقول <span dir="ltr">VPN detected</span>.<br>
+  • <b style="color:#FBBF24">البنوك تفحص أول ما تنفتح:</b> افتحها من زر «▶ افتحه الحين» أو من «📌 الأيقونة» (عليها ⏸ أخضر). المانع يوقف أول، وبعدين يفتح البنك.<br>
+  • وللعبة إذا تبي دعايات المكافآت فيها.</div>
+  <div class="card" id="usageWarn" style="display:none;border-color:#F59E0B">
+    <b>⚠️ باقي خطوة وحدة</b>
+    <div class="note">عشان المانع يعرف إنك فتحت البنك، لازم تعطيه إذن «الوصول للاستخدام». افتح الإعدادات، اختار «مانع»، وفعّل الإذن.</div>
+    <button class="btn" style="background:#B45309" onclick="M.usageSettings()">افتح الإعدادات وعطه الإذن</button>
+  </div>
+  <input id="aq" placeholder="ابحث عن برنامج…" oninput="renderApps()">
+  <div class="card" id="apps"><div class="note">جاري التحميل…</div></div>
+</section>
+
+<!-- SETTINGS -->
+<section class="page" id="p-dns">
+  <h3>🔄 التحديثات</h3>
+  <div class="card" id="updCard"></div>
+  <h3>🔒 القفل</h3>
+  <div class="card">
+    <div class="note">رقم سري يمنع إيقاف المانع، أو الوضع النظيف، أو فلتر المحتوى، أو استثناء برامج أو السماح بمواقع، إلا بالرقم.</div>
+    <div id="pinState" style="margin:8px 0;font-weight:700"></div>
+    <button class="btn s" onclick="pinSetup()">🔢 حط / غيّر الرقم السري</button>
+    <button class="btn s" id="pinDel" onclick="pinRemove()">🗑️ شيل الرقم السري</button>
+  </div>
+  <h3>💾 نسخة احتياطية</h3>
+  <div class="card">
+    <div class="note">تحفظ كل شي: القوائم، اللي مسحته بإصبعك، مواقعك، البرامج المستثناة، الفلتر، المفضلة، والسجل. احفظها في Google Drive عشان لو غيرت تلفون.</div>
+    <button class="btn" onclick="M.backup()">💾 احفظ نسخة</button>
+    <button class="btn s" onclick="askPin('ترجيع نسخة',function(){M.restore()})">📂 رجّع من نسخة</button>
+  </div>
+  <h3>⚡ زر سريع</h3>
+  <div class="card">
+    <div class="note">زر «مانع» في لوحة الإشعارات تشغّله وتطفيه بدون ما تفتح البرنامج. والمانع يرجع يشتغل لحاله بعد الريستارت والتحديث.</div>
+    <button class="btn" onclick="var r=M.addTile();toast(r==='ok'?'وافق على إضافة الزر 👍':'نزّل لوحة الإشعارات ← ✏️ ← واسحب زر «مانع» لفوق')">➕ أضف الزر للوحة الإشعارات</button>
+  </div>
+  <h3>🌐 سيرفر DNS</h3>
+  <div class="note" style="margin:6px 2px">السيرفر اللي تروح له الطلبات بعد ما تعدّي على قوائمك. AdGuard يمنع زيادة فوق القوائم.</div>
+  <div class="card" id="srvs"></div>
+  <div class="note" style="text-align:center;margin:16px 0" id="verLine"></div>
+</section>
+
+<nav id="nav">
+  <a data-p="home" class="on"><i>🛡️</i>الرئيسية</a>
+  <a data-p="lists"><i>📚</i>الأنواع</a>
+  <a data-p="log"><i>📜</i>السجل</a>
+  <a data-p="mine"><i>✍️</i>قوائمي</a>
+  <a data-p="apps"><i>📱</i>البرامج</a>
+  <a data-p="dns"><i>⚙️</i>الإعدادات</a>
+</nav>
+
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()"><div class="in" id="sheetIn"></div></div>
+
+<script>
+var cur='home', lf='', appsCache=null;
+function $(i){return document.getElementById(i)}
+function J(s){try{return JSON.parse(s)}catch(e){return null}}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function fmt(n){return Number(n).toLocaleString('en-US')}
+var CATS={ads:'📢 دعايات ومتتبّعات',sec:'🦠 حماية (فيروسات واحتيال)',native:'🕵️ تجسس الشركات',content:'🔞 محتوى'};
+
+function show(p){cur=p;document.querySelectorAll('.page').forEach(function(e){e.classList.toggle('on',e.id==='p-'+p)});
+ document.querySelectorAll('nav a').forEach(function(e){e.classList.toggle('on',e.dataset.p===p)});window.scrollTo(0,0);refresh();
+ if(p==='apps')loadApps()}
+document.querySelectorAll('nav a').forEach(function(e){e.onclick=function(){show(e.dataset.p)}});
+document.querySelectorAll('#lchips .chip').forEach(function(e){e.onclick=function(){lf=e.dataset.f;document.querySelectorAll('#lchips .chip').forEach(function(x){x.classList.toggle('on',x===e)});renderLog()}});
+function back(){if($('sheet').classList.contains('on'))return closeSheet();if(cur!=='home')return show('home');M.exit()}
+
+function later(){setTimeout(refresh,500);setTimeout(refresh,1500)}
+function refresh(){
+ var s=J(M.state())||{};
+ var cs=$('cleanSw'); if(cs) cs.classList.toggle('on',!!s.clean);
+ var uw=$('usageWarn'); if(uw) uw.style.display=(!s.usageOk&&s.pauseCount>0)?'block':'none';
+ $('big').classList.toggle('on',!!s.on);$('bigT').textContent=s.on?'شغّال':'شغّل';$('bigS').textContent=s.on?'اضغط للإيقاف':'اضغط للتشغيل';
+ $('st').innerHTML=s.on?(s.paused?'<span style="color:#FBBF24">⏸ موقف عشان '+esc(s.paused)+' • يرجع لما تطلع منه</span>':'<span style="color:#4ADE80">✅ الدعايات ممنوعة</span>'):'<span style="color:#F87171">⛔ المانع طافي</span>';
+ if(s.on&&!s.usageOk&&s.pauseCount>0)$('st').innerHTML+='<div class="note" style="color:#FBBF24;margin-top:6px" onclick="show(\'apps\')">⚠️ عشان يوقف مع البنوك لازم إذن «الوصول للاستخدام» • اضغط هني</div>';
+ $('nB').textContent=fmt(s.blocked||0);$('nT').textContent=fmt(s.total||0);$('nA').textContent=fmt(s.allBlocked||0);$('nR').textContent=fmt(s.rules||0);
+ $('srv').textContent=s.server||'';
+ $('busy').style.display=s.busy?'block':'none';$('busy').textContent='⏳ '+(s.busyMsg||'');
+ $('upd').textContent=s.updated?('آخر تحديث: '+new Date(s.updated).toLocaleString('ar-KW')+' • يتحدّث كل أسبوع لحاله'):'القوائم ما تحمّلت للحين';
+ if(cur==='lists')renderLists();if(cur==='log')renderLog();if(cur==='mine')renderMine();if(cur==='dns')renderSrv();
+}
+function renderLists(){
+ var l=J(M.lists())||[],h='',c='';
+ l.forEach(function(x){if(x.cat!==c){if(c)h+='</div>';c=x.cat;h+='<h3>'+CATS[c]+'</h3><div class="card">'}
+  h+='<div class="row"><div class="t"><b>'+esc(x.name)+' '+(x.on&&!x.have?'<span class="tag">ينتظر تحميل</span>':'')+(x.have?'<span class="tag">'+(x.size/1048576).toFixed(1)+' MB</span>':'')+'</b><span>'+esc(x.desc)+'</span></div>'+
+  '<div class="sw '+(x.on?'on':'')+'" onclick="listToggle(\''+x.id+'\','+(!x.on)+')"></div></div>'});
+ $('lists').innerHTML=h+'</div>';
+}
+var ST={b:['#EF4444','ممنوع (القوائم)'],bc:['#EF4444','ممنوع (أنت)'],bs:['#F59E0B','ممنوع (السيرفر)'],a:['#22C55E','مسموح'],ac:['#22C55E','مسموح (أنت)']};
+function renderLog(){
+ var q=$('lq').value.trim().toLowerCase(),l=J(M.log(lf))||[],h='';
+ l.forEach(function(e){if(q&&e[1].indexOf(q)<0)return;var s=ST[e[2]]||ST.a;
+  h+='<div class="lg" onclick="pick(\''+esc(e[1])+'\',\''+e[2]+'\')"><span class="dot" style="background:'+s[0]+'"></span><span class="d">'+esc(e[1])+'</span><span class="tm">'+new Date(e[0]).toLocaleTimeString('en-GB')+'</span></div>'});
+ $('log').innerHTML=h||'<div class="note" style="text-align:center;direction:rtl">ما في شي للحين. شغّل المانع واستخدم التلفون.</div>';
+}
+function base(d){var p=d.split('.');return p.length>2?p.slice(-2).join('.'):d}
+function pick(d,s){
+ var b=base(d),h='<div class="log" style="font-size:15px;margin-bottom:10px;word-break:break-all">'+esc(d)+'</div><div class="note">'+(ST[s]||ST.a)[1]+'</div>';
+ h+='<button class="btn r" onclick="quick(\'block\',\''+d+'\')">⛔ امنع '+esc(d)+'</button>';
+ if(b!==d)h+='<button class="btn r" style="background:#991B1B" onclick="quick(\'block\',\''+b+'\')">⛔ امنع كل '+esc(b)+'</button>';
+ h+='<button class="btn g" onclick="quick(\'allow\',\''+d+'\')">✅ اسمح '+esc(d)+'</button>';
+ if(b!==d)h+='<button class="btn g" style="background:#166534" onclick="quick(\'allow\',\''+b+'\')">✅ اسمح كل '+esc(b)+'</button>';
+ h+='<button class="btn s" onclick="closeSheet()">إلغاء</button>';
+ $('sheetIn').innerHTML=h;$('sheet').classList.add('on');
+}
+function closeSheet(){$('sheet').classList.remove('on')}
+function quick(k,d){var go=function(){M.addCustom(k,d);closeSheet();toast(k==='block'?'انمنع '+d:'انسمح '+d)};if(k==='allow')askPin('السماح بموقع',go);else go()}
+function toast(t){var e=document.createElement('div');e.textContent=t;e.style.cssText='position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:#0F172A;border:1px solid #334155;padding:10px 16px;border-radius:12px;z-index:20;direction:rtl;white-space:nowrap';document.body.appendChild(e);setTimeout(function(){e.remove()},1800)}
+function rmC(k,d){var go=function(){M.removeCustom(k,d);renderMine()};if(k==='block')askPin('شيل موقع ممنوع',go);else go()}
+function renderMine(){var c=J(M.custom())||{allow:[],block:[]};
+ function L(k,a){return a.map(function(d){return '<div class="row"><div class="t log">'+esc(d)+'</div><span class="x" onclick="rmC(\''+k+'\',\''+d+'\')">✕</span></div>'}).join('')||'<div class="note" style="padding-top:8px">فاضية</div>'}
+ $('lB').innerHTML=L('block',c.block);$('lA').innerHTML=L('allow',c.allow)}
+function addC(k,id){if(k==='allow'&&M.hasPin()&&!window.__okA){return askPin('السماح بموقع',function(){window.__okA=1;addC(k,id);window.__okA=0})}var v=$(id).value;var r=M.addCustom(k,v);if(!r){toast('اكتب موقع صحيح');return}$(id).value='';renderMine()}
+function doTest(){var r=M.test($('tst').value);$('tstR').innerHTML=r==='bad'?'اكتب موقع صحيح':(ST[r]?'<span style="color:'+ST[r][0]+'">● '+ST[r][1]+'</span>':'')+(r==='a'?' <span class="note">(السيرفر ممكن يمنعه بعد)</span>':'')}
+function listToggle(id,on){var go=function(){M.setList(id,on);later()};if(on)go();else askPin('إيقاف قائمة',go)}
+function srvPick(id){askPin('تغيير السيرفر',function(){M.setServer(id);later()})}
+function renderSrv(){var l=J(M.servers())||[];
+ $('srvs').innerHTML=l.map(function(s){return '<div class="row" onclick="srvPick(\''+s.id+'\')"><div class="t"><b>'+esc(s.name)+'</b><span dir="ltr">'+s.ip+'</span></div><div class="sw '+(s.on?'on':'')+'"></div></div>'}).join('')}
+function loadApps(){if(appsCache)return renderApps();setTimeout(function(){appsCache=J(M.apps())||[];renderApps()},30)}
+function renderApps(){if(!appsCache)return;var q=$('aq').value.trim().toLowerCase();
+ var l=appsCache.slice().sort(function(a,b){return (b.ex-a.ex)});
+ $('apps').innerHTML=l.filter(function(a){return !q||a.label.toLowerCase().indexOf(q)>=0||a.pkg.indexOf(q)>=0}).map(function(a){
+  return '<div class="row" style="flex-wrap:wrap"><div class="t"><b>'+esc(a.label)+'</b><span dir="ltr">'+esc(a.pkg)+'</span></div><div class="sw '+(a.ex?'on':'')+'" onclick="exApp(\''+a.pkg+'\')"></div>'+
+  (a.ex?'<div style="display:flex;gap:8px;width:100%;margin-top:8px"><button class="btn g" style="margin:0;padding:10px" onclick="M.launchSafe(\''+a.pkg+'\')">▶ افتحه الحين</button><button class="btn" style="margin:0;padding:10px" onclick="pin(\''+a.pkg+'\')">📌 أيقونة على الشاشة</button></div>':'')+'</div>'}).join('')||'<div class="note">ما في نتائج</div>'}
+function pin(p){var r=M.pinShortcut(p);toast(r==='ok'?'وافق على إضافة الأيقونة 👍':'ما قدرت أضيف الأيقونة • استخدم «افتحه الحين»')}
+function exApp(p){var a0=appsCache.filter(function(a){return a.pkg===p})[0];if(a0&&!a0.ex&&M.hasPin()){return askPin('استثناء برنامج',function(){exApp2(p)})}exApp2(p)}
+function exApp2(p){appsCache.forEach(function(a){if(a.pkg===p){a.ex=!a.ex;M.setExcluded(p,a.ex)}});renderApps();
+ var s=J(M.state())||{};if(!s.usageOk){$('usageWarn').style.display='block';window.scrollTo(0,0)}}
+
+var TESTS=[['جوجل - دعايات','googleads.g.doubleclick.net'],['جوجل - إعلانات المواقع','pagead2.googlesyndication.com'],['جوجل - AdMob','admob.com'],['جوجل - تتبّع','google-analytics.com'],
+['AppLovin (ألعاب)','d.applovin.com'],['Unity Ads (ألعاب)','ads.unity3d.com'],['ironSource (ألعاب)','outcome-ssp.supersonicads.com'],['Vungle (ألعاب)','api.vungle.com'],['Mintegral (ألعاب)','mintegral.com'],['Pangle / تيك توك (ألعاب)','api-access.pangle.io'],
+['فيسبوك - دعايات','an.facebook.com'],['تويتر - دعايات','ads-api.twitter.com'],['ياهو - دعايات','ads.yahoo.com'],['أمازون - دعايات','aax.amazon-adsystem.com'],['Taboola','cdn.taboola.com'],['Outbrain','widgets.outbrain.com'],
+['Crashlytics (تتبّع)','settings.crashlytics.com'],['Firebase (تتبّع)','app-measurement.com'],['AppsFlyer (تتبّع)','t.appsflyer.com'],['Adjust (تتبّع)','app.adjust.com']];
+function runTest(){var ok=0,h='';TESTS.forEach(function(t){var r=M.test(t[1]),b=r==='b'||r==='bc';if(b)ok++;
+ h+='<div class="row"><div class="t"><b>'+t[0]+'</b><span dir="ltr">'+t[1]+'</span></div><span style="font-size:18px">'+(b?'✅':'❌')+'</span></div>'});
+ var pct=Math.round(ok*100/TESTS.length),col=pct>=90?'#4ADE80':pct>=60?'#FBBF24':'#F87171';
+ $('tRes').innerHTML='<div style="text-align:center;margin:12px 0"><div style="font-size:40px;font-weight:800;color:'+col+'">'+pct+'%</div><div class="note">انمنع '+ok+' من '+TESTS.length+(AdVpnOff()?' • المانع طافي، شغّله عشان ينمنعون فعلياً':'')+'</div></div>'+h}
+function AdVpnOff(){var s=J(M.state())||{};return !s.on}
+// ---------- PIN ----------
+function askPin(why,cb){ if(!M.hasPin())return cb();
+ $('sheetIn').innerHTML='<b style="font-size:17px">🔒 '+esc(why)+'</b><input id="pinIn" type="password" inputmode="numeric" placeholder="الرقم السري" style="margin:14px 0;text-align:center;font-size:22px;letter-spacing:6px"><button class="btn g" id="pinOk">تمام</button><button class="btn s" onclick="closeSheet()">إلغاء</button>';
+ $('sheet').classList.add('on'); setTimeout(function(){var e=$('pinIn');if(e)e.focus()},100);
+ $('pinOk').onclick=function(){ if(__chk($('pinIn').value)){closeSheet();cb()} else {toast('❌ الرقم غلط');$('pinIn').value=''} } }
+function pinSetup(){ askPin('الرقم الحالي',function(){
+ $('sheetIn').innerHTML='<b style="font-size:17px">🔢 الرقم السري الجديد</b><input id="p1" type="password" inputmode="numeric" placeholder="4 أرقام أو أكثر" style="margin:12px 0 8px;text-align:center;font-size:20px"><input id="p2" type="password" inputmode="numeric" placeholder="عيده مرة ثانية" style="margin:0 0 12px;text-align:center;font-size:20px"><div class="note">⚠️ لا تنساه. إذا نسيته لازم تمسح البرنامج وتثبّته من جديد.</div><button class="btn g" id="pOk">احفظ</button><button class="btn s" onclick="closeSheet()">إلغاء</button>';
+ $('sheet').classList.add('on');
+ $('pOk').onclick=function(){var a=$('p1').value,b=$('p2').value; if(a.length<4)return toast('لازم 4 أرقام على الأقل'); if(a!==b)return toast('الرقمين مو نفس بعض');
+  window.__op=window.__op||''; M.setPin(window.__lastPin||'',a); closeSheet(); toast('🔒 انحفظ الرقم السري'); refresh(); } }) }
+function pinRemove(){ askPin('شيل الرقم السري',function(){ M.setPin(window.__lastPin||'',''); toast('انشال الرقم السري'); refresh(); }) }
+// remember the last correct PIN for setPin(old,new)
+(function(){var c=M.checkPin.bind(M);window.__chk=function(v){var ok=c(v);if(ok)window.__lastPin=v;return ok}})();
+function bigToggle(){var s=J(M.state())||{}; if(s.on) askPin('إيقاف المانع',function(){M.toggle();later()}); else {M.toggle();later()}}
+function cleanToggle(el){var on=!el.classList.contains('on'); var go=function(){M.setClean(on);el.classList.toggle('on',on);toast(on?'🧼 الوضع النظيف شغّال':'انطفى الوضع النظيف')}; if(on)go(); else askPin('إيقاف الوضع النظيف',go)}
+
+// ---------- stats ----------
+function renderStats(){var st=J(M.stats())||{};if(!st.days)return;var mx=1;st.days.forEach(function(d){if(d[1]>mx)mx=d[1]});
+ var D=['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+ var bars=st.days.map(function(d){var h=Math.round(d[1]*70/mx);var day=D[new Date(d[0]+'T12:00').getDay()];
+  return '<div style="flex:1;text-align:center"><div style="font-size:11px;color:#8EA0BC">'+(d[1]>999?(d[1]/1000).toFixed(1)+'k':d[1])+'</div><div style="height:72px;display:flex;align-items:flex-end;justify-content:center"><div style="width:60%;height:'+Math.max(2,h)+'px;background:#22C55E;border-radius:4px 4px 0 0"></div></div><div style="font-size:11px;color:#8EA0BC">'+day+'</div></div>'}).join('');
+ var top=(st.top||[]).slice(0,6).map(function(t){return '<div class="row" style="padding:6px 0"><div class="t log" style="font-size:13px">'+esc(t[0])+'</div><b style="font-size:13px">'+fmt(t[1])+'</b></div>'}).join('');
+ $('statCard').innerHTML='<b>📊 انمنع آخر 7 أيام</b><div style="display:flex;gap:4px;margin:10px 0 6px;direction:ltr">'+bars+'</div>'+(top?'<div class="note" style="margin-top:8px">أكثر شي حاول يطلع:</div>'+top:'')}
+
+// ---------- updates ----------
+function renderUpd(){var u=J(M.upd())||{},v=M.version(),h='',b='';
+ if(u.state==='available'){b='<b>🔄 في تحديث جديد '+esc(u.name)+'</b>'+(u.notes?'<div class="note">'+esc(u.notes)+'</div>':'')+'<button class="btn" style="background:#0369A1" onclick="M.doUpdate()">حدّث الحين</button>'+(u.canInstall?'':'<div class="note">أول مرة بيطلب إذن «تثبيت تطبيقات»، فعّله وارجع اضغط مرة ثانية.</div>')}
+ else if(u.state==='downloading')b='<b>⬇️ جاري التحميل '+u.progress+'%</b><div style="height:8px;background:#1E293B;border-radius:9px;margin-top:8px"><div style="height:8px;width:'+u.progress+'%;background:#38BDF8;border-radius:9px"></div></div>';
+ else if(u.state==='installing')b='<b>📦 وافق على التثبيت…</b>';
+ $('updBox').innerHTML=b;$('updBox').style.display=b?'block':'none';
+ h='<div class="row" style="padding:0"><div class="t"><b>نسختك: '+esc(v)+'</b><span>'+({checking:'⏳ يدوّر…',latest:'✅ عندك آخر نسخة',error:'⚠️ ما قدرت أوصل لسيرفر التحديثات',available:'🔄 في تحديث '+esc(u.name)}[u.state]||'')+'</span></div></div>'+
+  (u.state==='available'?'<button class="btn" style="background:#0369A1" onclick="M.doUpdate()">حدّث الحين</button>':'<button class="btn s" onclick="M.checkUpdate(true);later()">🔄 تأكد من التحديثات</button>');
+ $('updCard').innerHTML=h;$('verLine').textContent='مانع '+v}
+
+var _r=refresh;refresh=function(){_r();try{renderUpd();if(cur==='home')renderStats();var hp=M.hasPin();$('pinState').textContent=hp?'🔒 القفل شغّال':'🔓 ما في رقم سري';$('pinDel').style.display=hp?'block':'none'}catch(e){}};
+refresh();setInterval(refresh,1500);
+M.checkUpdate(false);
+if(M.firstRun())M.updateAll();
+</script>
+</body>
+</html>

